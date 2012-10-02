@@ -2,6 +2,9 @@ cdef extern from "SimpleRNG.h":
     cdef cppclass SimpleRNG:
         SimpleRNG()
 
+        # Seed the random number generator 
+        void SetState(unsigned int u, unsigned int v)
+
         # A uniform random sample from the open interval (0, 1) 
         double GetUniform()
 
@@ -50,7 +53,11 @@ cdef class pySimpleRNG:
         self.thisptr = new SimpleRNG()
     def __dealloc__(self):
         del self.thisptr
-    
+   
+    # Seed the random number generator 
+    def SetState(self, unsigned int u, unsigned int v):
+        self.thisptr.SetState(u, v)
+
     # A uniform random sample from the open interval (0, 1) 
     def GetUniform(self): 
         return self.thisptr.GetUniform()
