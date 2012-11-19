@@ -3,7 +3,7 @@ import random
 
 # constants / parameter setup etc
 N = 50 # number of neurons
-D = 3 # number of primitives 
+D = 3 # number of dimensions
 
 def make_abs_val(dimensions, neurons, name, intercept=[0]):
     def mult_neg_one(x):
