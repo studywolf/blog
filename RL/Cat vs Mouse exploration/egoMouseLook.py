@@ -6,8 +6,8 @@ import pdb
 
 import cellular
 reload(cellular)
-import qlearn_mod_random as qlearn
-#import qlearn
+import qlearn_mod_random as qlearn # to use the alternative exploration method
+#import qlearn # to use standard exploration method
 reload(qlearn)
 
 directions = 8
