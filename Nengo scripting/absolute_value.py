@@ -5,7 +5,7 @@ import random
 N = 50 # number of neurons
 D = 3 # number of dimensions
 
-def make_abs_val(dimensions, neurons, name, intercept=[0]):
+def make_abs_val(name, neurons, dimensions, intercept=[0]):
     def mult_neg_one(x):
         return x[0] * -1 
 
@@ -30,8 +30,7 @@ def make_abs_val(dimensions, neurons, name, intercept=[0]):
 net = nef.Network('network')
 
 # Create absolute value subnetwork and add it to net
-abs_val = make_abs_val(dimensions=D, neurons=N, name='abs_val')
-net.add(abs_val) 
+net.add(make_abs_val(name='abs_val', dimensions=D, neurons=N))
 
 # Create function input
 net.make_input('input', values=[random.random() for d in range(D)])
