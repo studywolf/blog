@@ -11,19 +11,18 @@ def make_abs_val(name, neurons, dimensions, intercept=[0]):
 
     abs_val = nef.Network(name)
 
-    input = abs_val.make('input', neurons=1, dimensions=dimensions, mode='direct') # create input relay
-    output = abs_val.make('output', neurons=1, dimensions=dimensions, mode='direct') # create output relay
+    abs_val.make('input', neurons=1, dimensions=dimensions, mode='direct') # create input relay
+    abs_val.make('output', neurons=1, dimensions=dimensions, mode='direct') # create output relay
     
-    for d in range(D): # create a positive and negative population for each dimension in the input signal
-        abs_pos = abs_val.make('abs_pos%d'%d, neurons=neurons, dimensions=1, encoders=[[1]], intercept=intercept)
-        abs_neg = abs_val.make('abs_neg%d'%d, neurons=neurons, dimensions=1, encoders=[[-1]], intercept=intercept)
+    for d in range(dimensions): # create a positive and negative population for each dimension in the input signal
+        abs_val.make('abs_pos%d'%d, neurons=neurons, dimensions=1, encoders=[[1]], intercept=intercept)
+        abs_val.make('abs_neg%d'%d, neurons=neurons, dimensions=1, encoders=[[-1]], intercept=intercept)
 
-        trans = [0 for i in range(D)]; trans[d] = 1
-        abs_val.connect(input, abs_pos, transform=trans)
-        abs_val.connect(input, abs_neg, transform=trans)
+        abs_val.connect('input', 'abs_pos%d'%d, index_pre=d)
+        abs_val.connect('input', 'abs_neg%d'%d, index_pre=d)
     
-        abs_val.connect(abs_pos, output, transform=trans)
-        abs_val.connect(abs_neg, output, transform=trans, func=mult_neg_one)
+        abs_val.connect('abs_pos%d'%d, 'output', index_post=d)
+        abs_val.connect('abs_neg%d'%d, 'output', index_post=d, func=mult_neg_one)
 
     return abs_val.network
 
