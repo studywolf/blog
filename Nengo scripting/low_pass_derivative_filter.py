@@ -1,5 +1,4 @@
 import nef
-import random
 
 # constants / parameter setup etc
 N = 50 # number of neurons
@@ -37,8 +36,7 @@ def make_dlowpass(name, neurons, dimensions, radius=10, tau_inhib=0.005, inhib_s
     # if the derivative is below a given threshold
     dlowpass.make('derivative', neurons=radius*neurons, dimensions=2, radius=radius) # create population to calculate the derivative
     dlowpass.connect('derivative', 'derivative', index_pre=0, index_post=1, pstc=0.1) # set up recurrent connection
-    dlowpass.add(make_abs_val(name='abs_val', neurons=neurons, dimensions=1)) # create a subnetwork to calculate the absolute value  
-    dlowpass.make('inhibition', neurons=neurons, dimensions=1, encoders=[[1]], intercept=(.2,1)) # create population to inhibit output
+    dlowpass.add(make_abs_val(name='abs_val', neurons=neurons, dimensions=1, intercept=(.2,1))) # create a subnetwork to calculate the absolute value  
 
     # connect it up!
     dlowpass.connect('input', 'output') # set up communication channel
@@ -47,12 +45,11 @@ def make_dlowpass(name, neurons, dimensions, radius=10, tau_inhib=0.005, inhib_s
     def sub(x):
         return [x[0] - x[1]]
     dlowpass.connect('derivative', 'abs_val.input', func=sub)
-    dlowpass.connect('abs_val.output', 'inhibition')
         
     # set up inhibitory matrix
     inhib_matrix = [[-inhib_scale]] * neurons * dimensions
     output.addTermination('inhibition', inhib_matrix, tau_inhib, False)
-    dlowpass.connect('inhibition', output.getTermination('inhibition'))
+    dlowpass.connect('abs_val.output', output.getTermination('inhibition'))
 
     return dlowpass.network
 
@@ -70,3 +67,4 @@ net.connect('input_function', 'dlowpass.input')
 
 # Add it all to Nengo
 net.add_to_nengo()
+
