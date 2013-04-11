@@ -15,10 +15,10 @@ class Arm3Link:
         :param list L: the arm segment lengths
         """
         # initial joint angles
-        if q is None: q = [.3, .3, 0]
+        if q is None: q = [math.pi/4, math.pi/4, 0]
         self.q = q
         # some default arm positions
-        if q0 is None: q0 = np.array([math.pi/4, math.pi/4, math.pi/4]) 
+        if q0 is None: q0 = np.array([math.pi/4, math.pi/4, 0]) 
         self.q0 = q0
         # arm segment lengths
         if L is None: L = np.array([1, 1, 1]) 
@@ -56,9 +56,6 @@ class Arm3Link:
         minimize the distance of each joint from it's default position (q0).
         
         :param list xy: a tuple of the desired xy position of the arm
-        :param list q: initial set of joint angles [shoulder, elbow, wrist]
-        :param list q0: default set of joint angles [shoulder, elbow, wrist]
-        :param list L: set of arm segment lengths [shoulder, elbow, wrist]
         :returns list: the optimal [shoulder, elbow, wrist] angle configuration
         """
 
@@ -102,18 +99,8 @@ class Arm3Link:
                 self.L[2]*np.sin(np.sum(q)) ) - xy[1]
             return y
 
-        def joint_angle_constraints(q, xy):
-            """This is an inequality constraint, where we force the 
-            arm to be the right arm, by putting an upper and lower 
-            bound on possible joint angles.
-
-            :returns list: where each element must be >= 0 to be valid
-            """
-            return [q - self.min_angles, self.max_angles - q]
-        
         return scipy.optimize.fmin_slsqp( func=distance_to_default, 
             x0=self.q, eqcons=[x_constraint, y_constraint], 
-            f_ieqcons=joint_angle_constraints,
             args=[xy], iprint=0) # iprint=0 suppresses output
 
 def test():
