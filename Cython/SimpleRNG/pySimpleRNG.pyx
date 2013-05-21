@@ -53,7 +53,7 @@ cdef class pySimpleRNG:
         self.thisptr = new SimpleRNG()
     def __dealloc__(self):
         del self.thisptr
-   
+    
     # Seed the random number generator 
     def SetState(self, unsigned int u, unsigned int v):
         self.thisptr.SetState(u, v)
