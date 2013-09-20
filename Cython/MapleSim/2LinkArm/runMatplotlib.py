@@ -1,4 +1,5 @@
 #Written by Travis DeWolf (Sept, 2013)
+#Based on code by Jake Vanderplas - http://jakevdp.github.com
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
