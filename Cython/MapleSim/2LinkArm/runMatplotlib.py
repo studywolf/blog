@@ -31,7 +31,7 @@ class TwoLinkArm:
 
     def step(self, dt):
         """Simulate the system and update the state"""
-        for i in range(1000):
+        for i in range(1500):
             self.sim.step(self.state, self.u)
         self.time_elapsed = self.state[0]
 
@@ -42,7 +42,7 @@ dt = 1./30 # 30 fps
 
 #------------------------------------------------------------
 # set up figure and animation
-fig = plt.figure()
+fig = plt.figure(figsize=(4,4))
 ax = fig.add_subplot(111, aspect='equal', autoscale_on=False,
                      xlim=(-1, 1), ylim=(-1, 1))
 ax.grid()
@@ -65,14 +65,12 @@ def animate(i):
     time_text.set_text('time = %.2f' % arm.time_elapsed)
     return line, time_text
 
-# choose the interval based on dt and the time to animate one step
-from time import time
-t0 = time()
-animate(0)
-t1 = time()
-interval = 1000 * dt - (t1 - t0)
-
 # frames=None for matplotlib 1.3
-ani = animation.FuncAnimation(fig, animate, frames=None, #frames=np.arange(300),
-                              interval=interval, blit=True, init_func=init)
+ani = animation.FuncAnimation(fig, animate, frames=None,
+                              interval=25, blit=True, init_func=init)
+
+# uncomment the following line to save the video in mp4 format.  This
+# requires either mencoder or ffmpeg to be installed on your system
+ani.save('2linkarm.mp4', fps=15, extra_args=['-vcodec', 'libx264'])
+
 plt.show()
