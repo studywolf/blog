@@ -116,7 +116,7 @@ class Control:
         # generate the mass matrix in end-effector space
         Mq = self.gen_Mq(arm)
         Mx_inv = np.dot(JEE, np.dot(np.linalg.inv(Mq), JEE.T))
-        if abs(np.linalg.det(JEE)) > .005:
+        if abs(np.linalg.det(np.dot(JEE,JEE.T))) > .000025:
             # if we're not near a singularity
             Mx = np.linalg.inv(Mx_inv)
         else: 
