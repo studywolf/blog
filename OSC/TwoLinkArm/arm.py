@@ -30,14 +30,6 @@ class Arm:
             self.sim.step(self.state, u)
         self.update_state()
 
-    def is_near_singularity(self, threshold=.1):
-        """Checks the current configuration of the arm
-        to see if we're within threshold distance of a singularity"""
-        
-        if abs(self.q[1]) <= threshold or \
-           abs(self.q[1] - np.pi) <= threshold: return True
-        return False
-   
     def update_state(self):
         self.t = self.state[0]
         self.q = self.state[1:3]
