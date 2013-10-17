@@ -14,7 +14,7 @@ import numpy as np
 
 kp = 10 # gain on the PD controller
 arm = Arm()
-control = Control(kp=kp, kv=np.sqrt(kp), control_type='osc_x')
+control = Control(kp=kp, kv=np.sqrt(kp), control_type='osc')
 runner = Runner(title='2LinkArm', dt=1e-4, control_steps=10, 
                 display_steps=100, t_target=2., max_tau=1e100,
                 xylim=1)
