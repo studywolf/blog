@@ -1,5 +1,4 @@
 import numpy as np
-import py2LinkArm
 
 class Control:
     """
@@ -89,7 +88,7 @@ class Control:
         prop_val = ((self.target.reshape(1,2) - arm.q) + np.pi) % \
                                                     (np.pi*2) - np.pi
         q_des = (self.kp * prop_val + \
-                 self.kv * -arm.dq + self.ka).reshape(2,)
+                 self.kv * -arm.dq).reshape(2,)
 
         Mq = self.gen_Mq(arm)
 
