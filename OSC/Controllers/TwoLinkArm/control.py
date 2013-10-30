@@ -24,6 +24,11 @@ class Control:
             self.target_gain = 2*np.pi; self.target_bias = -np.pi
         else: print 'invalid control type'; assert False
 
+    def set_target_from_mouse(self, target):
+        """Takes in a (x,y) coordinate and sets the target"""
+        self.target = target
+        return self.target
+
     def gen_target(self, arm):
         self.target = np.random.random(size=(2,)) * \
             self.target_gain + self.target_bias

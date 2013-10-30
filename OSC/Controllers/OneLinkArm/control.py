@@ -35,6 +35,16 @@ class Control:
             return (0, self.target)
         return arm.position(self.target)
 
+    def set_target_from_mouse(self, target): 
+        """This just takes in an (x,y) coordinate and sets 
+           the target appropriately based on control style"""
+        if self.control_type == 'osc_x': 
+            self.target = target[0]
+            return (self.target, 0)
+        elif self.control_type == 'osc_y':
+            self.target = target[1]
+            return (0, self.target)
+
     def gen_jacCOM1(self, arm):
         """Generates the Jacobian from the COM of the first
            link to the origin frame"""

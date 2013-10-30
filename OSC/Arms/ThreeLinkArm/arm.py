@@ -5,16 +5,11 @@ class Arm:
     def __init__(self, dt=1e-5):
 
         # length of arm links
-        #self.l1 = .8; self.l2 = .5; self.l3 = .3
         self.l1 = 2.0; self.l2 = 1.2; self.l3 = .7
         # mass of links
-        m1=1.0; m2=1.0; m3=1.0
+        m1=1; m2=m1; m3=m1
         # z axis inertia moment of links
-        #izz1=7.; izz2=5.; izz3=3
-        #izz1=70.; izz2=izz1*.5; izz3=izz1*.3
-        izz1=45.; izz2=12.; izz3=8.
-        #izz1=1; izz2=1; izz3=1
-        #izz1=100; izz2=izz1; izz3=izz1
+        izz1=1; izz2=izz1; izz3=izz1
         # create mass matrices at COM for each link
         self.M1 = np.zeros((6,6))
         self.M2 = np.zeros((6,6)) 
@@ -22,7 +17,6 @@ class Arm:
         self.M1[0:3,0:3] = np.eye(3)*m1; self.M1[5,5] = izz1
         self.M2[0:3,0:3] = np.eye(3)*m2; self.M2[5,5] = izz2
         self.M3[0:3,0:3] = np.eye(3)*m3; self.M3[5,5] = izz3
-        #self.M1*=10; self.M2*=10; self.M3*=10
         
         # stores information returned from maplesim
         self.state = np.zeros(7) 
