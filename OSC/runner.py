@@ -6,7 +6,7 @@ class Runner:
     def __init__(self, title='', dt=1e-5, 
                        control_steps=10, display_steps=200, 
                        t_target=0.5, max_tau=100, 
-                       seed=1, box=[-1,1,-1,1],
+                       box=[-1,1,-1,1],
                        control_type=None):
         self.dt = dt
         self.control_steps = control_steps
@@ -45,7 +45,7 @@ class Runner:
         self.info = ax.text(self.box[0]+abs(.1*self.box[0]), \
                             self.box[3]-abs(.1*self.box[3]), \
                             '', va='top')
-        self.trail_data = np.ones((self.target_steps*20, 2), \
+        self.trail_data = np.ones((self.target_steps, 2), \
                                     dtype='float') * np.NAN
 
         # connect up mouse event if correct for control type
@@ -55,7 +55,7 @@ class Runner:
                                 * fig.get_figwidth()) * fig.get_dpi()
             def move_target(event): 
                 self.mouse_control_active = True
-                # get mouse position and scale appropriately to convert to (x,y) 
+                # get mouse position and scale appropriately to convert to (x,y)
                 target = ((np.array([event.x, event.y]) - .5 * fig.get_dpi()) /\
                                 self.fig_width) * \
                                 (self.box[1] - self.box[0]) + self.box[0]
@@ -70,10 +70,11 @@ class Runner:
             frames = int(video_time/(self.dt*self.display_steps))
 
         anim = animation.FuncAnimation(fig, self.anim_animate, 
-                   init_func=self.anim_init, frames=None, interval=0, blit=True)
+                   init_func=self.anim_init, frames=500, interval=0, 
+                   blit=True)
         
         if video is not None:
-            anim.save(video, fps=1.0/(self.dt*self.display_steps))
+            anim.save(video, fps=1)#1.0/(self.dt*self.display_steps))
         
         self.anim = anim
         

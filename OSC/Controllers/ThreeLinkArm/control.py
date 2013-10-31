@@ -28,7 +28,9 @@ class Control:
             self.target_gain = 2*np.pi; self.target_bias = -np.pi
         else: print 'invalid control type'; assert False
 
-        np.random.seed(1)
+        np.random.seed(4)
+        np.random.random()
+        np.random.random()
 
     def gen_target(self, arm):
         """Generate a target based on the control type"""
@@ -232,10 +234,11 @@ class Control:
 
         # calculate our secondary control signal
         # calculated desired joint angle acceleration
-        rest_angles = np.array([np.pi/4., np.pi/4, np.pi/4])
+        rest_angles = np.array([np.pi/4., np.pi/2., np.pi/2.])
         prop_val = ((rest_angles - arm.q) + np.pi) % (np.pi*2) - np.pi
-        q_des = (self.kp * prop_val + \
+        q_des = (10*self.kp * prop_val + \
                  self.kv * -arm.dq).reshape(3,)
+        q_des[0] = 0; 
 
         Mq = self.gen_Mq(arm)
         u_null = np.dot(Mq, q_des)

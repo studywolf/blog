@@ -30,13 +30,13 @@ elif arm == 3:
     from Arms.ThreeLinkArm.arm import Arm
     from Controllers.ThreeLinkArm.control import Control
     # Three link arm control_type = 'gc', 'osc', 'osc_and_null'
-    control_type = 'osc'
+    control_type = 'osc_and_null'
     control_pars = {'control_type':control_type}
     runner_pars = {'control_type':control_type,
                    'title':'3 link arm',
                    'box':[-3, 3, -3, 3]}
 
-kp = 100 # gain on the PD controller
+kp = 200 # gain on the PD controller
 arm = Arm()
 control = Control(kp=kp, kv=np.sqrt(kp), **control_pars)
 
@@ -44,9 +44,9 @@ control = Control(kp=kp, kv=np.sqrt(kp), **control_pars)
 runner = Runner(dt=1e-5, 
                 control_steps=2,
                 display_steps=100, 
-                t_target=1., 
+                t_target=.15, 
                 max_tau=1e100,
                 **runner_pars)
 
-runner.run(arm=arm, control=control)
+runner.run(arm=arm, control=control)#, video='arm.mp4')
 runner.show()
