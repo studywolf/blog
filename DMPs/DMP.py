@@ -187,13 +187,16 @@ class DMPs_discrete(DMPs):
         self.w = np.zeros((self.dmps, self.bfs))
         for d in range(self.dmps):
             for b in range(self.bfs):
-                # diminishing / vanishing term
+                # diminishing and spatial scaling term
                 s = x_track * (self.goal[d] - self.y0[d])
                 # BF activation through time
                 G = np.diag(psi_track[:,b])
+                # weighted BF activation
+                sG = np.dot(s, G)
+                print np.dot(sG, s)
                 # weighted linear regression solution
-                self.w[d,b] = np.dot(np.dot(s, G), f_target[:,d]) / \
-                                (np.dot(np.dot(s,G), s) + 1e-10)
+                self.w[d,b] = np.dot(sG, f_target[:,d]) / \
+                                (np.dot(sG, s) + 1e-10)
 
         '''
         # plot the basis function activations
