@@ -9,15 +9,12 @@ class CanonicalSystem():
         """Default values from Schaal (2012)
         
         ae float: coefficient on phase activation
-        kst
         """
         self.ax = ax
 
     def discrete_open(self, dt, run_time):
         """Generate x for discrete open loop movements.
         Decaying from 1 to 0 according to dx = -ax*x.
-        Default run time is 5 seconds, gets close to zero
-        with self.ax = 1.
 
         dt float: timestep
         run_time float: how long to run the CS
