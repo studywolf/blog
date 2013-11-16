@@ -56,7 +56,7 @@ class DMPs(object):
         timesteps = int(self.run_time / self.dt)
 
         # run canonical system, record activations
-        x_track = self.cs.discrete_open(dt=self.dt, run_time=self.run_time)
+        x_track = self.cs.discrete_rollout(dt=self.dt, run_time=self.run_time)
         psi_track = self.gen_psi_track(x_track=x_track)
 
         # set system state
@@ -126,7 +126,7 @@ class DMPs_discrete(DMPs):
         """Set the centre of the Gaussian basis 
         functions be spaced evenly between 1 and 0"""
 
-        x_track = self.cs.discrete_open(dt=self.dt, run_time=self.run_time)
+        x_track = self.cs.discrete_rollout(dt=self.dt, run_time=self.run_time)
         t = np.arange(len(x_track))*self.dt
         c_des = np.arange(0, 1, 1./self.bfs)
         self.c = np.zeros(len(c_des))
@@ -181,7 +181,7 @@ class DMPs_discrete(DMPs):
                             (self.by[d] * (self.goal[d] - y_des[d]) - \
                             dy_des[d] / self.tau)
         # calculate x and psi
-        x_track = self.cs.discrete_open(dt=self.dt, run_time=self.run_time)
+        x_track = self.cs.discrete_rollout(dt=self.dt, run_time=self.run_time)
         psi_track = self.gen_psi_track(x_track)
 
         self.w = np.zeros((self.dmps, self.bfs))

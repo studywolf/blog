@@ -11,8 +11,9 @@ class CanonicalSystem():
         ae float: coefficient on phase activation
         """
         self.ax = ax
+        self.x = 1.0
 
-    def discrete_open(self, dt, run_time):
+    def discrete_rollout(self, dt, run_time):
         """Generate x for discrete open loop movements.
         Decaying from 1 to 0 according to dx = -ax*x.
 
@@ -20,15 +21,25 @@ class CanonicalSystem():
         run_time float: how long to run the CS
         """
         timesteps = int(run_time / dt)
-        self.x_track = np.zeros(timesteps) # to store phase activation
+        self.x_track = np.zeros(timesteps)
         
-        x = 1.0
+        self.x = 1.0
         for t in range(timesteps):
-            self.x_track[t] = x 
-            x += (-self.ax * x) * dt
+            self.x_track[t] = self.x 
+            self.discrete_step(dt)
 
         return self.x_track
 
+    def discrete_step(self, dt):
+        """Generate a single step of x for discrete
+        closed loop movements. Decaying from 1 to 0 
+        according to dx = -ax*x.
+
+        dt float: timestep
+        """
+        self.x += (-self.ax * self.x) * dt
+        return self.x
+        
 
 #==============================
 # Test code
@@ -36,7 +47,7 @@ class CanonicalSystem():
 if __name__ == "__main__":
     
     cs = CanonicalSystem()
-    x_track = cs.discrete_open(dt=.001)
+    x_track = cs.discrete_rollout(dt=.001, run_time=5.0)
 
     import matplotlib.pyplot as plt
     plt.figure(figsize=(6,3))
