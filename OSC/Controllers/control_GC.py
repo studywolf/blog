@@ -29,9 +29,7 @@ class Control_GC(Control):
            joint space to the desired joint angle position"""
         
         # calculated desired joint angle acceleration
-        print 'target', self.target.reshape(1,-1)
-        print 'q', arm.q
-        prop_val = ((self.target.reshape(1,-1) - arm.q) + np.pi) % \
+        prop_val = ((self.target - arm.q) + np.pi) % \
                                                     (np.pi*2) - np.pi
         q_des = (self.kp * prop_val + \
                  self.kv * -arm.dq).reshape(-1,)

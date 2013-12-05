@@ -2,9 +2,9 @@ from runner import Runner
 import numpy as np
 
 # arms: 1, 2, 3
-arm = 3
+arm = 2
 # control_types: gc, osc, dmp, trajectory
-control_type = 'dmp' 
+control_type = 'osc' 
 
 #--------------------------------
 # set up the chosen arm
@@ -21,7 +21,8 @@ if arm == 1:
 
 elif arm == 2: 
     # Two link arm can also run pure python by importing 
-    from Arms.TwoLinkArm.arm import Arm2Link as Arm
+    from Arms.TwoLinkArm.arm_python import Arm2Link as Arm
+    #from Arms.TwoLinkArm.arm import Arm2Link as Arm
     arm_pars['singularity_thresh'] = 1e-5
     runner_pars = {'control_type':control_type, 
                    'title':'2 link arm',
