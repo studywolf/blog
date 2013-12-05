@@ -28,12 +28,10 @@ class Control_DMP(Control_OSC):
         self.tau = tau
         self.target,_,_ = self.dmps.step(tau=self.tau)
 
-        print self.dmps.goal
         if add_to_goals is not None: 
             for ii, dmp in enumerate(self.dmp_sets):
                 dmp.goal[0] += add_to_goals[ii*2]
                 dmp.goal[1] += add_to_goals[ii*2+1]
-        print self.dmps.goal
 
         self.num_seq = 0
 

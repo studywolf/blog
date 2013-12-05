@@ -2,9 +2,9 @@ from runner import Runner
 import numpy as np
 
 # arms: 1, 2, 3
-arm = 2
+arm = 3
 # control_types: gc, osc, dmp, trajectory
-control_type = 'osc' 
+control_type = 'dmp' 
 
 #--------------------------------
 # set up the chosen arm

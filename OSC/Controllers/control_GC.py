@@ -20,7 +20,6 @@ class Control_GC(Control):
         """Generate a random target"""
         self.target = np.random.random(size=(len(arm.L),)) * \
             self.target_gain + self.target_bias
-        print self.target
 
         return arm.position(self.target)
 
