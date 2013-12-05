@@ -5,40 +5,56 @@ class CanonicalSystem():
     """Implementation of the canonical dynamical system
     as described in Dr. Stefan Schaal's (2002) paper"""
 
-    def __init__(self, ax=1.):
+    def __init__(self, dt):
         """Default values from Schaal (2012)
         
+        dt float: the timestep
         ae float: coefficient on phase activation
+        run_time float: how long to run a rollout 
         """
-        self.ax = ax
-        self.x = 1.0
+        self.ax = 1.0
+        self.run_time = 1.0 
 
-    def discrete_rollout(self, dt, run_time):
+        self.dt = dt
+        self.timesteps = int(self.run_time / self.dt)
+
+        self.reset_state()
+
+    def discrete_rollout(self, **kwargs):
         """Generate x for discrete open loop movements.
         Decaying from 1 to 0 according to dx = -ax*x.
 
         dt float: timestep
         run_time float: how long to run the CS
         """
-        timesteps = int(run_time / dt)
+        if kwargs.has_key('tau'):
+            timesteps = int(self.timesteps / kwargs['tau'])
+        else: 
+            timesteps = self.timesteps
         self.x_track = np.zeros(timesteps)
         
-        self.x = 1.0
+        self.reset_state()
         for t in range(timesteps):
             self.x_track[t] = self.x 
-            self.discrete_step(dt)
+            self.discrete_step(**kwargs)
 
         return self.x_track
 
-    def discrete_step(self, dt):
+    def discrete_step(self, tau=1.0, error_coupling=1.0):
         """Generate a single step of x for discrete
         closed loop movements. Decaying from 1 to 0 
         according to dx = -ax*x.
-
-        dt float: timestep
+        
+        tau float: gain on execution time
+                   increase tau to make the system execute faster
+        error_coupling float: slow down if the error is > 1
         """
-        self.x += (-self.ax * self.x) * dt
+        self.x += (-self.ax * self.x * error_coupling) * tau * self.dt
         return self.x
+
+    def reset_state(self):
+        """Reset the system state"""
+        self.x = 1.0
         
 
 #==============================
@@ -46,14 +62,36 @@ class CanonicalSystem():
 #==============================
 if __name__ == "__main__":
     
-    cs = CanonicalSystem()
-    x_track = cs.discrete_rollout(dt=.001, run_time=5.0)
+    cs = CanonicalSystem(dt=.001)
+    # test normal rollout
+    x_track1 = cs.discrete_rollout()
+
+    cs.reset_state()
+    # test error coupling
+    timesteps = int(1.0/.001)
+    x_track2 = np.zeros(timesteps)
+    err = np.zeros(timesteps)
+    err[200:400] = 2
+    err_coup = 1.0 / (1 + err)
+    for i in range(timesteps):
+        x_track2[i] = cs.discrete_step(error_coupling=err_coup[i])
 
     import matplotlib.pyplot as plt
-    plt.figure(figsize=(6,3))
-    plt.plot(x_track, lw=2)
-    plt.title('Canonical system')
+    fig, ax1 = plt.subplots(figsize=(6,3))
+    ax1.plot(x_track1, lw=2)
+    ax1.plot(x_track2, lw=2)
+    plt.grid()
+    plt.legend(['normal rollout', 'error coupling'])
+    ax2 = ax1.twinx()
+    ax2.plot(err, 'r-', lw=2)
+    plt.legend(['error'], loc='lower right')
+    plt.ylim(0, 3.5)
     plt.xlabel('time (s)')
     plt.ylabel('x')
+    plt.title('Canonical system')
+
+    for t1 in ax2.get_yticklabels():
+        t1.set_color('r')
+
     plt.tight_layout()
     plt.show()

@@ -9,8 +9,7 @@ class DMPs(object):
 
     def __init__(self, dmps, bfs, dt=.01,
                  y0=0, goal=1, w=None, 
-                 ay=None, by=None, 
-                 **kwargs): # CS parameters
+                 ay=None, by=None):
         """
         dmps int: number of dynamic motor primitives
         bfs int: number of basis functions per DMP
@@ -42,45 +41,32 @@ class DMPs(object):
         self.by = by
 
         # set up the CS 
-        self.cs = CanonicalSystem(**kwargs)
+        self.cs = CanonicalSystem(dt=self.dt)
+        self.timesteps = int(self.cs.run_time / self.dt)
+        # set up the DMP system
+        self.reset_state()
 
     def gen_psi_track(self): raise NotImplementedError()
 
     def imitate_paths(self): raise NotImplementedError() 
 
-    def open_rollout(self):
-        """Generate a system trial. Canonical system is run offline
-        and no feedback is incorporated.
+    def rollout(self, **kwargs):
+        """Generate a system trial, no feedback is incorporated."""
 
-        """
-        timesteps = int(self.run_time / self.dt)
-
-        # run canonical system, record activations
-        x_track = self.cs.discrete_rollout(dt=self.dt, run_time=self.run_time)
-        psi_track = self.gen_psi_track(x_track=x_track)
-
-        # set system state
-        y = self.y0.copy()
-        dy = np.zeros(self.dmps)   
-        ddy = np.zeros(self.dmps)   
+        self.reset_state()
+        if kwargs.has_key('tau'):
+            timesteps = int(self.timesteps / kwargs['tau'])
+        else: 
+            timesteps = self.timesteps
 
         # set up tracking vectors
-        y_track = np.zeros((timesteps, self.dmps)) # desired path
-        dy_track = np.zeros((timesteps, self.dmps)) # desired velocity
-        ddy_track = np.zeros((timesteps, self.dmps)) # desired acceleration
+        y_track = np.zeros((timesteps, self.dmps)) 
+        dy_track = np.zeros((timesteps, self.dmps))
+        ddy_track = np.zeros((timesteps, self.dmps))
     
         for t in range(timesteps):
         
-            for d in range(self.dmps):
-                # generate the forcing term
-                f = x_track[t] * (self.goal[d] - self.y0[d]) * \
-                        (np.dot(psi_track[t], self.w[d])) / np.sum(psi_track[t])
-
-                # DMP acceleration
-                ddy[d] = self.tau * (self.ay[d] * 
-                         (self.by[d] * (self.goal[d] - y[d]) - dy[d]) + f)
-                dy[d] += self.tau * ddy[d] * self.dt
-                y[d] += self.tau * dy[d] * self.dt 
+            y, dy, ddy = self.step(**kwargs)
 
             # record timestep
             y_track[t] = y
@@ -89,18 +75,56 @@ class DMPs(object):
 
         return y_track, dy_track, ddy_track
 
+    def reset_state(self):
+        """Reset the system state"""
+        self.y = self.y0.copy()
+        self.dy = np.zeros(self.dmps)   
+        self.ddy = np.zeros(self.dmps)  
+        self.cs.reset_state()
+
+    def step(self, tau=1.0, state_fb=None):
+        """Run the DMP system for a single timestep.
+
+       tau float: scales the timestep
+                  increase tau to make the system execute faster
+       state_fb np.array: optional system feedback
+        """
+
+        # run canonical system
+        cs_args = {'tau':tau,
+                   'error_coupling':1.0}
+        if state_fb is not None: 
+            # take the 2 norm of the overall error
+            state_fb = state_fb.reshape(1,self.dmps)
+            dist = np.sqrt(np.sum((state_fb - self.y)**2))
+            cs_args['error_coupling'] = 1.0 / (1.0 + 10*dist)
+        x = self.cs.discrete_step(**cs_args)
+
+        # generate basis function activation
+        psi = np.exp(-self.h * (x - self.c)**2)
+
+        for d in range(self.dmps):
+
+            # generate the forcing term
+            f = x * (self.goal[d] - self.y0[d]) * \
+                (np.dot(psi, self.w[d])) / np.sum(psi)
+
+            # DMP acceleration
+            self.ddy[d] = (self.ay[d] * 
+                     (self.by[d] * (self.goal[d] - self.y[d]) - \
+                     self.dy[d]/tau) + f) * tau
+            self.dy[d] += self.ddy[d] * tau * self.dt * cs_args['error_coupling']
+            self.y[d] += self.dy[d] * self.dt * cs_args['error_coupling']
+
+        return self.y, self.dy, self.ddy
+
+
 class DMPs_discrete(DMPs):
     """An implementation of discrete DMPs"""
 
-    def __init__(self, run_time=5, **kwargs): 
+    def __init__(self, **kwargs): 
         """
-        run_time float: change how long the movement takes
         """
-
-        self.run_time = run_time
-        # tau should be set to 1 / total_time
-        # to ensure movement is carried out in desired length of time
-        self.tau = 1.0 / run_time
 
         # call super class constructor
         super(DMPs_discrete, self).__init__(**kwargs)
@@ -109,8 +133,7 @@ class DMPs_discrete(DMPs):
 
         # set variance of Gaussian basis functions
         # trial and error to find this spacing
-        #h = np.ones(self.bfs) * self.bfs * 1.0/c**2
-        self.h = np.ones(self.bfs) * self.bfs**2 / self.c**2
+        self.h = np.ones(self.bfs) * self.bfs / self.c
 
         self.check_offset()
         
@@ -124,16 +147,29 @@ class DMPs_discrete(DMPs):
 
     def gen_centers(self):
         """Set the centre of the Gaussian basis 
-        functions be spaced evenly between 1 and 0"""
+        functions be spaced evenly throughout run time"""
 
-        x_track = self.cs.discrete_rollout(dt=self.dt, run_time=self.run_time)
+        '''x_track = self.cs.discrete_rollout()
         t = np.arange(len(x_track))*self.dt
-        c_des = np.arange(0, 1, 1./self.bfs)
+        # choose the points in time we'd like centers to be at
+        c_des = np.linspace(0, self.cs.run_time, self.bfs)
         self.c = np.zeros(len(c_des))
         for ii, point in enumerate(c_des): 
             diff = abs(t - point)
-            self.c[ii] = x_track[np.where(diff == min(diff))[0][0]]
+            self.c[ii] = x_track[np.where(diff == min(diff))[0][0]]'''
 
+        # desired spacings along x
+        # need to be spaced evenly between 1 and exp(-ax)
+        # lowest number should be only as far as x gets 
+        first = np.exp(-self.cs.ax*self.cs.run_time) 
+        last = 1.05 - first
+        des_c = np.linspace(first,last,self.bfs) 
+
+        self.c = np.ones(len(des_c)) 
+        for n in range(len(des_c)): 
+            # x = exp(-c), solving for c
+            self.c[n] = -np.log(des_c[n])
+        
     def gen_psi_track(self, x_track):
         """Generates the activity of the basis functions for a given 
         canonical system rollout. 
@@ -152,65 +188,74 @@ class DMPs_discrete(DMPs):
         """
 
         # set initial state and goal
+        if y_des.ndim == 1: 
+            y_des = y_des.reshape(1,len(y_des))
         self.y0 = y_des[:,0].copy()
         self.goal = y_des[:,-1].copy()
         self.y_des = y_des.copy()
         
-        self.run_time = y_des.shape[1]*self.dt
-        self.tau = 1.0 / self.run_time
-        self.gen_centers() # generate centers for new run_time
-
         self.check_offset()
 
+        # generate function to interpolate the desired trajectory
+        import scipy.interpolate
+        path = np.zeros((self.dmps, self.timesteps))
+        x = np.linspace(0, self.cs.run_time, y_des.shape[1])
+        for d in range(self.dmps):
+            path_gen = scipy.interpolate.interp1d(x, y_des[d])
+            for t in range(self.timesteps):  
+                path[d, t] = path_gen(t * self.dt)
+        y_des = path
+
         # calculate velocity of y_des
-        dy_des = np.diff(y_des) / float(self.dt)
-        # add zero to end of every row
-        #dy_des = np.hstack((dy_des, np.zeros((self.dmps, 1))))
+        dy_des = np.diff(y_des) / self.dt
+        # add zero to the beginning of every row
         dy_des = np.hstack((np.zeros((self.dmps, 1)), dy_des))
 
         # calculate acceleration of y_des
-        ddy_des = np.diff(dy_des) / float(self.dt)
-        # add zero to end of every row
-        #ddy_des = np.hstack((ddy_des, np.zeros((self.dmps, 1))))
+        ddy_des = np.diff(dy_des) / self.dt
+        # add zero to the beginning of every row
         ddy_des = np.hstack((np.zeros((self.dmps, 1)), ddy_des))
 
         f_target = np.zeros((y_des.shape[1], self.dmps))
         # find the force required to move along this trajectory
         for d in range(self.dmps):
-            f_target[:,d] = ddy_des[d] / self.tau**2 - self.ay[d] * \
+            f_target[:,d] = ddy_des[d] - self.ay[d] * \
                             (self.by[d] * (self.goal[d] - y_des[d]) - \
-                            dy_des[d] / self.tau)
-        # calculate x and psi
-        x_track = self.cs.discrete_rollout(dt=self.dt, run_time=self.run_time)
+                            dy_des[d])
+        # calculate x and psi   
+        x_track = self.cs.discrete_rollout()
         psi_track = self.gen_psi_track(x_track)
 
         self.w = np.zeros((self.dmps, self.bfs))
         for d in range(self.dmps):
+            # diminishing and spatial scaling term
+            s = x_track * (self.goal[d] - self.y0[d])
             for b in range(self.bfs):
-                # diminishing and spatial scaling term
-                s = x_track * (self.goal[d] - self.y0[d])
                 # BF activation through time
                 G = np.diag(psi_track[:,b])
                 # weighted BF activation
                 sG = np.dot(s, G)
-                print np.dot(sG, s)
                 # weighted linear regression solution
                 self.w[d,b] = np.dot(sG, f_target[:,d]) / \
                                 (np.dot(sG, s) + 1e-10)
 
-        '''
-        # plot the basis function activations
+        '''# plot the basis function activations
         import matplotlib.pyplot as plt
         plt.figure()
         plt.subplot(211)
         plt.plot(psi_track)
+        plt.title('psi_track')
 
         # plot the desired forcing function vs approx
         plt.subplot(212)
-        plt.plot(f_target)
-        plt.plot(np.sum(psi_track * self.w, axis=1))
-        plt.show()
-        '''
+        plt.plot(f_target[:,0])
+        plt.plot(np.sum(psi_track * self.w[0], axis=1))
+        plt.legend(['f_target', 'w*psi'])
+        plt.tight_layout()
+        plt.show()'''
+
+        self.reset_state()
+        return y_des
 
 
 #==============================
@@ -220,7 +265,7 @@ if __name__ == "__main__":
 
     # test normal run
     dmp = DMPs_discrete(dmps=1, bfs=10, w=np.zeros((1,10)))
-    y_track,dy_track,ddy_track = dmp.open_rollout()
+    y_track,dy_track,ddy_track = dmp.rollout()
 
     import matplotlib.pyplot as plt
     plt.figure(1, figsize=(6,3))
@@ -234,7 +279,7 @@ if __name__ == "__main__":
 
     # test imitation of path run
     plt.figure(2, figsize=(6,4))
-    num_bfs = [10, 30, 50, 100]
+    num_bfs = [10, 30, 50, 100, 10000]
 
     # a straight line to target
     path1 = np.sin(np.arange(0,1,.01)*5)
@@ -243,13 +288,13 @@ if __name__ == "__main__":
     path2[(len(path2) / 2.):] = .5 
 
     for ii, bfs in enumerate(num_bfs):
-        dmp = DMPs_discrete(dmps=2, bfs=bfs, w=np.random.random((1,10)))
+        dmp = DMPs_discrete(dmps=2, bfs=bfs)
 
         dmp.imitate_path(y_des=np.array([path1, path2]))
         # change the scale of the movement
         dmp.goal[0] = 3; dmp.goal[1] = 2
 
-        y_track,dy_track,ddy_track = dmp.open_rollout()
+        y_track,dy_track,ddy_track = dmp.rollout()
 
         plt.figure(2)
         plt.subplot(211)
