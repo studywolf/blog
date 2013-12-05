@@ -51,7 +51,9 @@ class Arm:
         if ee_only: return np.array([[x[-1]], [y[-1]]]).reshape(2,)
         else: return (x, y)
 
-    def apply_torque(self, u, dt):
+    def apply_torque(self, u, dt=None):
+        if dt is None: 
+            dt = self.dt
 
         # equations solved for angles
         C2 = np.cos(self.q[1])
