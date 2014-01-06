@@ -226,18 +226,15 @@ class DMPs_discrete(DMPs):
         x_track = self.cs.discrete_rollout()
         psi_track = self.gen_psi_track(x_track)
 
+        # efficiently calculate weights for BFs using weighted linear regression
         self.w = np.zeros((self.dmps, self.bfs))
         for d in range(self.dmps):
-            # diminishing and spatial scaling term
-            s = x_track * (self.goal[d] - self.y0[d])
+            # spatial scaling term
+            k = (self.goal[d] - self.y0[d])
             for b in range(self.bfs):
-                # BF activation through time
-                G = np.diag(psi_track[:,b])
-                # weighted BF activation
-                sG = np.dot(s, G)
-                # weighted linear regression solution
-                self.w[d,b] = np.dot(sG, f_target[:,d]) / \
-                                (np.dot(sG, s) + 1e-10)
+                numer = np.sum(x_track * psi_track[:,b] * f_target[:,d])
+                denom = np.sum(x_track**2 * psi_track[:,b])
+                self.w[d,b] = numer / (k * denom)
 
         '''# plot the basis function activations
         import matplotlib.pyplot as plt
