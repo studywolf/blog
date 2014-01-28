@@ -31,9 +31,9 @@ class Arm3Link(Arm):
         self.l1 = 2.0; self.l2 = 1.2; self.l3 = .7
         self.L = np.array([self.l1, self.l2, self.l3])
         # mass of links
-        m1=100; m2=m1; m3=m1
+        m1=10; m2=m1; m3=m1
         # z axis inertia moment of links
-        izz1=1; izz2=izz1; izz3=izz1
+        izz1=100; izz2=izz1; izz3=izz1
         # create mass matrices at COM for each link
         self.M1 = np.zeros((6,6))
         self.M2 = np.zeros((6,6)) 

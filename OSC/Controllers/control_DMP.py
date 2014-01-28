@@ -16,7 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
 from control_OSC import Control_OSC
-from .Trajectories import DMP as DMP
+from .Trajectories import DMP_discrete as DMP
 import numpy as np
 
 class Control_DMP(Control_OSC):
