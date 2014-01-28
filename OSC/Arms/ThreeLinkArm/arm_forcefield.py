@@ -25,6 +25,9 @@ class Arm3Link(Arm):
         self.M2[0:3,0:3] = np.eye(3)*m2; self.M2[5,5] = izz2
         self.M3[0:3,0:3] = np.eye(3)*m3; self.M3[5,5] = izz3
 
+        # forcefield as defined in Shademehr 1994 experiment 1
+        self.B = np.array([[-10.1, -11.2],[-11.2, 11.1]])*5
+
         self.rest_angles = np.array([np.pi/4.0, np.pi/4.0, np.pi/4.0])
         
         # stores information returned from maplesim
@@ -42,6 +45,14 @@ class Arm3Link(Arm):
         dt float: the timestep
         """
         u = np.array(u, dtype='float')
+
+        # get the end-effector velocity
+        jacEE = self.gen_jacEE()
+        dx = np.dot(jacEE, self.dq)
+        # add in the forcefield described in Shademehr 1994
+        f = np.dot(jacEE.T, np.dot(self.B, dx))
+        
+        u += f
        
         for i in range(int(np.ceil(dt/self.dt))):
             self.sim.step(self.state, -1*u)

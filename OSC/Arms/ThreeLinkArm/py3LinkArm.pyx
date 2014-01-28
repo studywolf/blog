@@ -1,7 +1,7 @@
 import numpy as np
 cimport numpy as np
  
-cdef extern from "threelinkarm.cpp": 
+cdef extern from "threelinkarm_gravity.cpp": 
     cdef cppclass Sim:
         Sim(double dt, double* params)
         void reset(double* out, double* ic)

@@ -1,6 +1,6 @@
 from ..Arm import Arm
 import numpy as np
-import py3LinkArm as py3LinkArm
+import py3LinkArm_damping as py3LinkArm
 
 class Arm3Link(Arm):
     """A wrapper around a MapleSim generated C simulation
