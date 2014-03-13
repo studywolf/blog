@@ -25,7 +25,7 @@ going in to the Arms/num_link/ folder and running setup::
 This will compile the arm for you into a shared object library that's
 accessible from Python. 
 
-NOTE: The arms have been tested on linux and currently don't compile on Mac. 
+NOTE: The arms have only been tested on linux and currently don't compile on Mac. 
 
 Running
 -------
