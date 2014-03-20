@@ -15,27 +15,23 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
-from Arms.three_link.arm import Arm3Link as Arm3
-
-import Controllers.shell as shell
-
 import numpy as np
 
-def Task(arm_class, control_type):
+class Shell(object):
     """
-    This task sets up the arm to move to random 
-    target positions ever t_target seconds. 
     """
 
-    control_pars = {'pen_down':True}
+    def __init__(self, controller, pen_down=False):
+        """
+        control Control instance: the controller to use 
+        pen_down boolean: True if the end-effector is drawing
+        """
 
-    runner_pars = {'control_type':'random',
-                   'title':'Task: Random movements'}
-    if issubclass(arm_class, Arm3):
-        runner_pars.update({'box':[-5,5,-5,5]})
+        self.controller = controller
+        self.pen_down = pen_down 
 
-    kp = 50 # position error gain on the PD controller
-    controller = control_type(kp=kp, kv=np.sqrt(kp))
-    control_shell = shell.Shell(controller=controller, **control_pars)
-
-    return (control_shell, runner_pars)
+    def control(self, arm): 
+        """Call the controllers control function.
+        """
+        self.u = self.controller.control(arm) 
+        return self.u

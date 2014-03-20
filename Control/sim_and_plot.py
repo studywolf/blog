@@ -50,9 +50,9 @@ class Runner:
         self.sim_step = 0
         self.trail_index = 0
         
-    def run(self, arm, control, video=None, video_time=None):
+    def run(self, arm, control_shell, video=None, video_time=None):
         self.arm = arm
-        self.control = control
+        self.shell = control_shell
         
         fig = plt.figure(figsize=(5.1,5.1), dpi=None)
         fig.suptitle(self.title); 
@@ -82,7 +82,7 @@ class Runner:
 
         # connect up mouse event if specified
         if self.mouse_control: 
-            self.target = self.control.gen_target(arm)
+            self.target = self.shell.controller.gen_target(arm)
             # get pixel width of fig (-.2 for the padding)
             self.fig_width = (fig.get_figwidth() - .2 \
                                 * fig.get_figwidth()) * fig.get_dpi()
@@ -93,7 +93,8 @@ class Runner:
                                 (self.box[1] - self.box[0]) + self.box[0]
 
                 # set target for the controller
-                self.target = self.control.set_target_from_mouse(target)
+                self.target = \
+                    self.shell.controller.set_target_from_mouse(target)
 
             # hook up function to mouse event
             fig.canvas.mpl_connect('motion_notify_event', move_target)
@@ -114,7 +115,7 @@ class Runner:
     def make_info_text(self):
         text = []
         text.append('t = %1.4g'%(self.sim_step*self.dt))
-        u_text = ' '.join('%4.3f,'%F for F in self.control.u)
+        u_text = ' '.join('%4.3f,'%F for F in self.shell.u)
         text.append('u = ['+u_text+']')
 
         if self.control_type.startswith('adaptive'):
@@ -135,16 +136,16 @@ class Runner:
         if self.control_type == 'random':
             # update target after specified period of time passes
             if self.sim_step % (self.target_steps*self.display_steps) == 0:
-                self.target = self.control.gen_target(self.arm)
+                self.target = self.shell.controller.gen_target(self.arm)
         else:
-            self.target = self.control.target
+            self.target = self.shell.controller.target
        
         # before drawing
         for j in range(self.display_steps):            
             # update control signal
             if self.sim_step % self.control_steps == 0 or \
                 'tau' not in locals():
-                    tau = self.control.control(self.arm)
+                    tau = self.shell.control(self.arm)
             # apply control signal and simulate
             self.arm.apply_torque(u=tau, dt=self.dt)
     
@@ -155,7 +156,7 @@ class Runner:
         self.info.set_text(self.make_info_text())
         self.trail.set_data(self.trail_data[:,0], self.trail_data[:,1])
         if self.target is not None:
-            if isinstance(self.control, GC.Control):
+            if isinstance(self.shell.controller, GC.Control):
                 # convert to plottable form if necessary
                 target = self.arm.position(q=self.target, rotate=self.rotate)
             else:
@@ -163,7 +164,7 @@ class Runner:
             self.target_line.set_data(target)
             
         # update hand trail
-        if self.control.pen_down:
+        if self.shell.pen_down:
             if self.infinite_trail:
                 # if we're writing, keep all pen_down history
                 self.trail_index += 1

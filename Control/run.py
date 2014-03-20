@@ -35,10 +35,10 @@ from Arms.two_link.arm import Arm2Link as Arm2
 from Arms.two_link.arm_python import Arm2Link as Arm2Python
 from Arms.three_link.arm import Arm3Link as Arm3
 
-import Controllers.dmp as DMP
-import Controllers.gc as GC
-import Controllers.osc as OSC
-import Controllers.trajectory as Trajectory
+import Controllers.dmp as dmp 
+import Controllers.gc as gc 
+import Controllers.osc as osc 
+import Controllers.trace as trace
 
 import Tasks.follow_mouse as follow_mouse
 import Tasks.random_movements as random_movements
@@ -62,10 +62,10 @@ arm_class = {'arm1':Arm1,
 arm = arm_class(options=args['--arm_options'])
 
 # get the chosen controller class
-control_class = {'dmp':DMP,
-           'gc':GC.Control,
-           'osc':OSC.Control,
-           'trajectory':Trajectory}[args['CONTROL']]
+control_class = {'dmp':dmp.Shell,
+           'gc':gc.Control,
+           'osc':osc.Control,
+           'trace':trace.Shell}[args['CONTROL']]
 
 # get the chosen task class
 task = {'follow':follow_mouse.Task,
@@ -77,10 +77,10 @@ task = {'follow':follow_mouse.Task,
 
 # instantiate the controller for the chosen task
 # and get the sim_and_plot parameters 
-controller, runner_pars = task(arm_class, control_class)
+control_shell, runner_pars = task(arm_class, control_class)
 
-# set up mouse control
+# set up simulate and plot system
 runner = Runner(**runner_pars)
 
-runner.run(arm=arm, control=controller, video=args['--video'])
+runner.run(arm=arm, control_shell=control_shell, video=args['--video'])
 runner.show()

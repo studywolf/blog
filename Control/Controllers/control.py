@@ -21,14 +21,12 @@ class Control(object):
     """
     The base class for controllers.
     """
-    def __init__(self, kp=10, kv=np.sqrt(10), pen_down=True):
+    def __init__(self, kp=10, kv=np.sqrt(10)):
         """
         kp float: the position error term gain value
         kv float: the velocity error term gain value
-        pen_down boolean: True if the end-effector is drawing
         """
 
-        self.pen_down = pen_down
         self.u = np.zeros((2,1)) # control signal
 
         self.kp = kp

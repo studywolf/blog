@@ -18,20 +18,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from Arms.one_link.arm import Arm1Link as Arm1
 from Arms.three_link.arm import Arm3Link as Arm3
 
-import Controllers.osc as OSC
+import Controllers.osc as osc 
+import Controllers.shell as shell
 
 import numpy as np
 
-def Task(arm_class, control_class):
+def Task(arm_class, control_type):
     """
     This task sets up the arm to follow the mouse 
     with its end-effector.
 
     arm_class Arm: the arm class chosen for this task
-    control_class Control: the controller class chosen for this task
+    control_type Control: the controller class chosen for this task
     """
 
-    if not issubclass(control_class, OSC.Control):
+    if not issubclass(control_type, osc.Control):
         raise Exception('System must use operational space control '\
                         '(osc) for following mouse task.')
 
@@ -48,7 +49,8 @@ def Task(arm_class, control_class):
         runner_pars.update({'box':[-5,5,-5,5]})
 
     kp = 50 # position error gain on the PD controller
-    controller = control_class(kp=kp, kv=np.sqrt(kp), **control_pars)
+    controller = control_type(kp=kp, kv=np.sqrt(kp))
+    control_shell = shell.Shell(controller=controller, **control_pars)
 
-    return (controller, runner_pars)
+    return (control_shell, runner_pars)
 

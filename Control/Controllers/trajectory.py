@@ -15,109 +15,94 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
+import gc 
+import osc 
+import shell
+
 import numpy as np
 
-def Control(base_class, dt, gain, trajectory, 
-                threshold=.01, **kwargs):
+class Shell(shell.Shell):
     """
-    A controller that uses a given trajectory to 
-    control a robotic arm end-effector.
-
-    base_class Class: the class to inherit control from
-    dt float: the timestep with which to move along the given trajectory
-    gain float: the PD gain while following a DMP trajectory
-    trajectory np.array: the time series of points to follow
-                         [DOFs, time], with a column of None
-                         wherever the pen should be lifted
     """
 
-    control_class = type('Control_Trajectory', (base_class,), 
-                         {'base_class':base_class,
-                          'control':control,
-                          'done':False,
-                          'dt':dt,
-                          'gain':gain,
-                          'gen_trajectories':gen_trajectories,
-                          'not_at_start':True,
-                          'num_seq':0,
-                          'threshold':threshold,
-                          'time':0.0})
-    controller = control_class(**kwargs)
+    def __init__(self, gain, tau, trajectory, threshold=.01, **kwargs):
+        """
+        control Control instance: the controller to use 
+        trajectory np.array: the time series of points to follow
+                             [DOFs, time], with a column of None
+                             wherever the pen should be lifted
+        tau float: the time scaling term
+        threshold float: how close the system must get to initial target
+        """
 
-    controller.gen_trajectories(trajectory)
-    controller.target = np.array([controller.trajectory[0](0.0), 
-                                  controller.trajectory[1](0.0)])
+        super(Shell, self).__init__(**kwargs)
 
-    return controller
+        self.done = False
+        self.gain = gain
+        self.not_at_start = True
+        self.num_seq = 0
+        self.tau = tau
+        self.threshold = threshold 
 
-def control(self, arm):
-    """Drive the end-effector through a series 
-       of (x,y) points"""
+        self.gen_path(trajectory)
+        self.set_target() 
+    
+    def check_pen_up(self):
+        """Check to see if the pen should be lifted.
+        """
+        raise NotImplementedError
 
-    if self.check_distance(arm) < self.threshold:
-        self.not_at_start = False
+    def control(self, arm): 
+        """Apply a given control signal in (x,y) 
+           space to the arm"""
+           
+        if self.controller.check_distance(arm) < self.threshold:
+            self.not_at_start = False
 
-    if self.not_at_start or self.done:
-        u = self.base_class.control(self, arm)
+        if self.not_at_start or self.done:
+            self.u = self.controller.control(arm)
 
-    else: 
-        y = np.array([self.trajectory[d](self.time) for d in range(2)])
-        self.time += self.dt
+        else:
+            self.set_target()
 
-        # check to see if it's pen up time
-        if self.time >= 1: 
-            self.pen_down = False
-            self.time = 0.0
-            if self.num_seq >= len(self.seqs_x) - 1:
-                # if we're finished the last sequence
-                self.done = True
-                self.target = [.3, 0]
-            else: 
-                # else move on to the next sequence
-                self.not_at_start = True
-                self.num_seq += 1
-                self.trajectory = [self.seqs_x[self.num_seq], 
-                              self.seqs_y[self.num_seq]]
-                self.target = [self.trajectory[0](0.0), self.trajectory[1](0.0)]
-        else: 
-            self.pen_down = True
-        
-        self.x = arm.position(ee_only=True)
-        x_des = self.gain * (y - self.x)
-        u = self.base_class.control(self, arm, x_des=x_des)
+            # check to see if it's pen up time
+            if self.check_pen_up(): 
+                self.pen_down = False
+                
+                if self.num_seq >= self.num_seqs - 1:
+                    # if we're finished the last DMP
+                    self.done = True
+                    self.controller.target = [.3, 0]
+                else:
+                    # else move on to the next DMP
+                    self.not_at_start = True
+                    self.num_seq += 1
+                    self.set_next_seq()
+                    self.set_target()
+            else:
+                self.pen_down = True
 
-    return u
+            if isinstance(self.controller, osc.Control):
+                pos = arm.position(ee_only=True)
+            elif isinstance(self.controller, gc.Control):
+                pos = arm.q
 
-def gen_trajectories(self, trajectory):
-    """Generates the trajectories for the 
-    position, velocity, and acceleration to follow
-    during run time to reproduce the given trajectory.
+            pos_des = self.gain * (self.controller.target - pos)
+            self.u = self.controller.control(arm, pos_des) 
 
-    trajectory np.array: a list of points to follow
-    """
+        return self.u
 
-    if trajectory.ndim == 1: 
-        trajectory = trajectory.reshape(1,len(trajectory))
-    dt = 1.0 / trajectory.shape[1]
+    def gen_path(self, trajectory):
+        """Generate the sequences to follow.
+        """
+        raise NotImplementedError
 
-    # break up the trajectory into its different words
-    # NaN or None signals a new word / break in drawing
-    breaks = np.where(trajectory != trajectory)
-    # some vector manipulation to get what we want
-    breaks = breaks[1][:len(breaks[1])/2]
-   
-    import scipy.interpolate
-    self.seqs_x = [] 
-    self.seqs_y = [] 
-    for ii in range(len(breaks) - 1):
-        # get the ii'th sequence
-        seq_x = trajectory[0, breaks[ii]+1:breaks[ii+1]]
-        seq_y = trajectory[1, breaks[ii]+1:breaks[ii+1]]
-        
-        # generate function to interpolate the desired trajectory
-        vals = np.linspace(0, 1, len(seq_x))
-        self.seqs_x.append(scipy.interpolate.interp1d(vals, seq_x))
-        self.seqs_y.append(scipy.interpolate.interp1d(vals, seq_y))
+    def set_next_seq(self):
+        """Get the next sequence in the list.
+        """
+        raise NotImplementedError
 
-    self.trajectory = [self.seqs_x[0], self.seqs_y[0]]
-
+    def set_target(self):
+        """Get the next target in the sequence.
+        """
+        raise NotImplementedError

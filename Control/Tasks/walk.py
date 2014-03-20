@@ -23,7 +23,7 @@ import Controllers.gc as GC
 import csv
 import numpy as np
 
-def Task(arm_class, control_class):
+def Task(arm_class, control_type):
     """
     This task sets up the arm to move like a leg walking.
 
@@ -31,7 +31,7 @@ def Task(arm_class, control_class):
     control_class Control: the controller class chosen for this task
     """
 
-    if control_class not in (DMP, GC.Control):
+    if control_type not in (DMP.Shell, GC.Control):
         raise Exception('System must use generalized coordinates control '\
                         '(gc) or dynamic movement primitives (dmp) '\
                         'for walking task.')
@@ -78,7 +78,6 @@ def Task(arm_class, control_class):
                     'bfs':1000, # how many basis function per DMP
                     'gain':100, # pd gain for trajectory following
                     'pattern':'rhythmic', # type of DMP to use
-                    'pen_down':False, 
                     'tau':.1, # tau is the time scaling term
                     'trajectory':trajectory.T,} 
 
@@ -88,8 +87,8 @@ def Task(arm_class, control_class):
                    'title':'Task: Walking'}
 
     kp = 50 # position error gain on the PD controller
-    controller = DMP.Control(base_class=GC.Control,
-                             kp=kp, kv=np.sqrt(kp), **control_pars)
+    controller = GC.Control(kp=kp, kv=np.sqrt(kp))
+    control_shell = DMP.Shell(controller=controller, **control_pars)
 
-    return (controller, runner_pars)
+    return (control_shell, runner_pars)
 

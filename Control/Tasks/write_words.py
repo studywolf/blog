@@ -18,25 +18,26 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from Arms.one_link.arm import Arm1Link as Arm1
 from Arms.three_link.arm import Arm3Link as Arm3
 
-import Controllers.dmp as DMP
-import Controllers.gc as GC 
-import Controllers.osc as OSC
-import Controllers.trajectory as Trajectory
+import Controllers.dmp as dmp
+import Controllers.osc as osc 
+import Controllers.trace as trace
+import Controllers.trajectory as trajectory_class
 
 import Tasks.Write.read_trajectory as rt
 
 import numpy as np
 
-def Task(arm_class, control_class, 
+# TODO: subclass trajectory tracing tasks
+def Task(arm_class, control_type, 
             writebox=np.array([-.35,.35,.25,.4])):
     """
     This task sets up the arm to write numbers inside 
     a specified area (-x_bias, x_bias, -y_bias, y_bias). 
     """
 
-    if control_class == GC.Control:
-        raise Exception('System must use operational space control '\
-                        '(osc) for writing tasks.')
+    if not issubclass(control_type, trajectory_class.Shell):
+        raise Exception('System must use trajectory control'\
+                        '(dmp | trace) for writing tasks.')
     
     if issubclass(arm_class, Arm1):
         raise Exception('System must can not use 1 link arm '\
@@ -54,7 +55,7 @@ def Task(arm_class, control_class,
                     'pen_down':False, 
                     'trajectory':trajectory.T} 
 
-    if control_class == DMP:
+    if issubclass(control_type, dmp.Shell):
         # number of goals is the number of (NANs - 1) * number of DMPs
         num_goals = (np.sum(trajectory[:,0] != trajectory[:,0]) - 1) * 2
         # respecify goals for spatial scaling by changing add_to_goals
@@ -62,9 +63,8 @@ def Task(arm_class, control_class,
                              'bfs':1000, # how many basis function per DMP
                              'tau':.005}) # tau is the time scaling term
     else:
-        # default to trajectory based control
-        control_class = Trajectory
-        control_pars.update({'dt':.00005}) # how fast the trajectory rolls out
+        # trajectory based control
+        control_pars.update({'tau':.00005}) # how fast the trajectory rolls out
 
     runner_pars = {'control_type':'write_words',
                    'infinite_trail':True, 
@@ -75,6 +75,7 @@ def Task(arm_class, control_class,
         runner_pars.update({'box':[-5,5,-5,5]})
 
     kp = 50 # position error gain on the PD controller
-    controller = control_class.Control(base_class=OSC.Control,
-                                       kp=kp, kv=np.sqrt(kp), **control_pars) 
+    controller = osc.Control(kp=kp, kv=np.sqrt(kp))
+    controller = control_type(controller=controller, **control_pars) 
+    
     return (controller, runner_pars)

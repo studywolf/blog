@@ -18,21 +18,24 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from Arms.one_link.arm import Arm1Link as Arm1
 from Arms.three_link.arm import Arm3Link as Arm3
 
-import Controllers.dmp as DMP
-import Controllers.gc as GC 
-import Controllers.osc as OSC
+import Controllers.dmp as dmp 
+import Controllers.gc as gc
+import Controllers.osc as osc 
+import Controllers.trace as trace
+import Controllers.trajectory as trajectory_class
 
 import numpy as np
 
-def Task(arm_class, control_class, x_bias=0., y_bias=.25, dist=.15):
+def Task(arm_class, control_type, x_bias=0., y_bias=.25, dist=.15):
     """
     This task sets up the arm to reach to 8 targets center out from
     (x_bias, y_bias) at a distance=dist.
     """
 
-    if control_class == GC.Control:
-        raise Exception('System must use operational space control '\
-                        '(osc) for reaching task.')
+    # TODO: make it possible to reach with trace and osc also
+    if not issubclass(control_type, dmp.Shell):
+        raise Exception('System must use DMP trajectory control'\
+                        '(dmp) for writing tasks.')
 
     if issubclass(arm_class, Arm1):
         raise Exception('System must can not use 1 link arm '\
@@ -70,7 +73,7 @@ def Task(arm_class, control_class, x_bias=0., y_bias=.25, dist=.15):
         runner_pars.update({'box':[-5,5,-5,5]})
 
     kp = 50 # position error gain on the PD controller
-    controller = DMP.Control(base_class=OSC.Control,
-                             kp=kp, kv=np.sqrt(kp), **control_pars)
+    controller = osc.Control(kp=kp, kv=np.sqrt(kp))
+    control_shell = control_type(controller=controller, **control_pars)
 
-    return (controller, runner_pars)
+    return (control_shell, runner_pars)
