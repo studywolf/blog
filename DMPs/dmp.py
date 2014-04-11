@@ -125,19 +125,6 @@ class DMPs(object):
         # efficiently generate weights to realize f_target
         self.gen_weights(f_target)
 
-        '''self.w = np.zeros((self.dmps, self.bfs))
-        for d in range(self.dmps):
-            # diminishing and spatial scaling term
-            s = self.gen_front_term(x_track, dmp_num=d)
-            for b in range(self.bfs):
-                # BF activation through time
-                G = np.diag(psi_track[:,b])
-                # weighted BF activation
-                sG = np.dot(s, G)
-                # weighted linear regression solution
-                self.w[d,b] = np.dot(sG, f_target[:,d]) / \
-                                (np.dot(sG, s) + 1e-10)'''
-
         '''# plot the basis function activations
         import matplotlib.pyplot as plt
         plt.figure()
@@ -220,8 +207,8 @@ class DMPs(object):
             # DMP acceleration
             self.ddy[d] = (self.ay[d] * 
                      (self.by[d] * (self.goal[d] - self.y[d]) - \
-                     self.dy[d]/tau) + f) * tau
-            self.dy[d] += self.ddy[d] * tau * self.dt * cs_args['error_coupling']
+                     self.dy[d]/tau) + f) * tau**2
+            self.dy[d] += self.ddy[d] * self.dt * cs_args['error_coupling']
             self.y[d] += self.dy[d] * self.dt * cs_args['error_coupling']
 
         return self.y, self.dy, self.ddy
