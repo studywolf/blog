@@ -116,7 +116,7 @@ class Arm3Link:
 
         return scipy.optimize.fmin_slsqp( func=distance_to_default, 
             x0=self.q, eqcons=[x_constraint, y_constraint], 
-            args=[xy], iprint=0) # iprint=0 suppresses output
+            args=(xy,), iprint=0) # iprint=0 suppresses output
 
 def test():
     ############Test it!##################
