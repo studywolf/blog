@@ -29,7 +29,7 @@ class Runner:
     'xrange is not an iterator', make sure that you have 
     the most recent version of matplotlib, from their github.
     """
-    def __init__(self, title='', dt=1e-4, control_steps=1, 
+    def __init__(self, title='', dt=1e-4, control_steps=10, 
                        display_steps=100, t_target=1.0, 
                        seed=1, box=[-1,1,-1,1], rotate=0.0,
                        control_type='', trajectory=None,
