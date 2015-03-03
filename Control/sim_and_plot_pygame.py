@@ -47,7 +47,7 @@ class ArmPart:
         Rotates and re-centers the arm segment.
         """
         # rotate our image 
-        image = pygame.transform.rotate(self.base, np.degrees(self.rotation))
+        image = pygame.transform.rotozoom(self.base, np.degrees(self.rotation), 1)
         # set it up so that we're rotating around the center point
         rect = image.get_rect()
         # reset the center
@@ -79,7 +79,7 @@ class Runner:
         self.title = title
 
         self.sim_step = 0
-        self.trail_index = 0
+        self.trail_index = -1
         self.pen_lifted = False
 
         self.width = 642
@@ -158,11 +158,9 @@ class Runner:
             self.trail_data.append([[x,y],[x,y]])
 
             self.trail_data[self.trail_index].append(points[3])
-            pen_down = pen_down2
+            self.pen_down = pen_down2
         def pen_down2():
             self.trail_data[self.trail_index].append(points[3])
-        pen_down = pen_down1
-
 
         # enter simulation / plotting loop
         while True: 
@@ -250,10 +248,11 @@ class Runner:
             # update trail
 
             if self.shell.pen_down is True:
-                pen_down()
+                self.pen_down()
             elif self.shell.pen_down is False and self.pen_lifted is False:
-                pen_down = pen_down1
+                self.pen_down = pen_down1
                 self.pen_lifted = True
+                self.trail_index += 1
 
             # draw things! 
             self.display.blit(background, (0,0)) # draw on the background
