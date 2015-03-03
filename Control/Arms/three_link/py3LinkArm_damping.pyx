@@ -29,7 +29,7 @@ cdef class pySim:
             NOTE: output is of form [time, output]
         param np.ndarray ic: the initial conditions of the system
         """
-        if ic: self.thisptr.reset(&out[0], &ic[0])
+        if ic is not None: self.thisptr.reset(&out[0], &ic[0])
         else: self.thisptr.reset(&out[0], NULL)
  
     def step(self, np.ndarray[double, mode="c"] out, 
