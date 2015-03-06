@@ -30,6 +30,14 @@ line_hand.fill(arm_color)
 
 origin = (width / 2, height / 2)
 
+def transform(rect, base, arm_part):
+    rect.center += np.asarray(base)
+    rect.center += np.array([np.cos(arm_part.rotation) * arm_part.offset,
+                            -np.sin(arm_part.rotation) * arm_part.offset])
+def transform_lines(rect, base, arm_part):
+    transform(rect, base, arm_part)
+    rect.center += np.array([-rect.width / 2.0, -rect.height / 2.0])
+
 while 1:
 
     display.fill(white)
@@ -49,11 +57,6 @@ while 1:
                           forearm.scale * np.sin(forearm.rotation), 
                           hand.length * np.sin(hand.rotation)]) * -1 + origin[1]
     joints = [(int(x), int(y)) for x,y in zip(joints_x, joints_y)]
-
-    def transform(rect, base, arm_part):
-        rect.center += np.asarray(base)
-        rect.center += np.array([np.cos(arm_part.rotation) * arm_part.offset,
-                                -np.sin(arm_part.rotation) * arm_part.offset])
 
     transform(ua_rect, joints[0], upperarm)
     transform(fa_rect, joints[1], forearm)
@@ -75,16 +78,13 @@ while 1:
                                         np.degrees(hand.rotation), 1)
     # translate arm lines
     lua_rect = line_ua.get_rect()
-    transform(lua_rect, joints[0], upperarm)
-    lua_rect.center += np.array([-lua_rect.width / 2.0, -lua_rect.height / 2.0])
+    transform_lines(lua_rect, joints[0], upperarm)
 
     lfa_rect = line_fa.get_rect()
-    transform(lfa_rect, joints[1], forearm)
-    lfa_rect.center += np.array([-lfa_rect.width / 2.0, -lfa_rect.height / 2.0])
+    transform_lines(lfa_rect, joints[1], forearm)
 
     lh_rect = line_h.get_rect()
-    transform(lh_rect, joints[2], hand)
-    lh_rect.center += np.array([-lh_rect.width / 2.0, -lh_rect.height / 2.0])
+    transform_lines(lh_rect, joints[2], hand)
 
     display.blit(line_ua, lua_rect)
     display.blit(line_fa, lfa_rect)
