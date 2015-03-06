@@ -24,37 +24,31 @@ class ArmPart:
     """
     A class for storing relevant arm segment information.
     """
-
-    def __init__(self, pic, 
-                 flip_image=False, 
-                 r_scale=1.0):
-
+    def __init__(self, pic, scale=1.0):
         self.base = pygame.image.load(pic)
-        
-        self.length = self.base.get_rect()[2]
-        self.width = self.base.get_rect()[3]
+        self.offset = self.base.get_rect()[2] / 2. * scale
 
-        rect = self.base.get_rect()
-        self.r = np.sqrt((rect[2] / 2. * r_scale)**2 + (rect[3] / 2.)**2) 
-
-        if flip_image == True:
-            self.base = pygame.transform.flip(self.base, 0, 1)
-
-        self.rotation = 0
-
-    def rotate(self):
+    def rotate(self, rotation):
         """
         Rotates and re-centers the arm segment.
         """
+        self.rotation = rotation 
+
         # rotate our image 
-        image = pygame.transform.rotozoom(self.base, np.degrees(self.rotation), 1)
-        # set it up so that we're rotating around the center point
-        rect = image.get_rect()
+        image = pygame.transform.rotozoom(self.base, np.degrees(rotation), 1)
         # reset the center
+        rect = image.get_rect()
         rect.center = np.zeros(2)
 
         return image, rect
 
+def transform(rect, base, arm_part):
+    rect.center += np.asarray(base)
+    rect.center += np.array([np.cos(arm_part.rotation) * arm_part.offset,
+                            -np.sin(arm_part.rotation) * arm_part.offset])
+def transform_lines(rect, base, arm_part):
+    transform(rect, base, arm_part)
+    rect.center += np.array([-rect.width / 2.0, -rect.height / 2.0])
 
 class Runner:
     """
@@ -86,60 +80,45 @@ class Runner:
         self.height = 600
         self.base_offset = np.array([self.width / 2.0, self.height*.9])
 
-        # self.figure_width = 4.75
-        # self.figure_height = 4.75
-        
-
     def run(self, arm, control_shell, video=None, video_time=None):
 
         self.arm = arm
         self.shell = control_shell
 
+        # load arm images 
         arm1 = ArmPart('img/three_link/svgupperarm2.png', 
-                        flip_image=True, 
-                        r_scale = .5)
+                        scale = .7)
         arm2 = ArmPart('img/three_link/svgforearm2.png', 
-                        flip_image=True, 
-                        r_scale = .6)
+                        scale = .8)
         arm3 = ArmPart('img/three_link/svghand2.png', 
-                        flip_image=True, 
-                        r_scale= 1)
+                        scale= 1)
 
-        background = pygame.image.load('img/whiteboard.jpg')
+        scaling_term = np.ones(2) * 105
+        upperarm_length = self.arm.L[0] * scaling_term[0]
+        forearm_length = self.arm.L[1] * scaling_term[0]
+        hand_length = self.arm.L[2] * scaling_term[0]
+        line_width = .15 * scaling_term[0]
 
-        pygame.init()
-        
-        self.display = pygame.display.set_mode((self.width, self.height))
-        pygame.display.set_caption(self.title)
+        # create transparent arm lines
+        line_upperarm_base = pygame.Surface((upperarm_length, line_width),
+                pygame.SRCALPHA, 32)
+        line_forearm_base = pygame.Surface((forearm_length, line_width),
+                pygame.SRCALPHA, 32)
+        line_hand_base = pygame.Surface((hand_length, line_width),
+                pygame.SRCALPHA, 32)
 
-        # constants
-        fps = 20 # frames per second
-        # colors
         white = (255, 255, 255)
         red = (255, 0, 0)
         black = (0, 0, 0)
         arm_color = (75, 75, 75)
-        line_color = (50, 50, 50, 200)
+        line_color = (50, 50, 50, 200) # fourth value is transparency
 
-        # scaling_term = np.array([self.height / self.figure_width,
-        #                          self.height / self.figure_height])
-        scaling_term = np.ones(2) * 105
-        # upperarm constants 
-        upperarm_length = self.arm.L[0] * scaling_term[0]
-        upperarm_width = .15 * scaling_term[1]
-        r_upperarm = np.sqrt((upperarm_length / 2.0) ** 2 + \
-                             (upperarm_width / 2.0) ** 2)
-        # forearm constants 
-        forearm_length = self.arm.L[1] * scaling_term[0]
-        forearm_width = .15 * scaling_term[1]
-        r_forearm = np.sqrt((forearm_length / 2.0) ** 2 + \
-                            (forearm_width / 2.0) ** 2)
-        # hand constants 
-        hand_length = self.arm.L[2] * scaling_term[0]
-        hand_width = .15 * scaling_term[1]
-        r_hand = np.sqrt((hand_length / 2.0) ** 2 + \
-                         (hand_width / 2.0) ** 2)
+        # color in transparent arm lines
+        line_upperarm_base.fill(line_color)
+        line_forearm_base.fill(line_color)
+        line_hand_base.fill(line_color)
 
+        fps = 20 # frames per second
         fpsClock = pygame.time.Clock()
 
         # constants for magnify plotting
@@ -161,6 +140,12 @@ class Runner:
             self.pen_down = pen_down2
         def pen_down2():
             self.trail_data[self.trail_index].append(points[3])
+
+        pygame.init()
+        self.display = pygame.display.set_mode((self.width, self.height))
+        pygame.display.set_caption(self.title)
+
+        background = pygame.image.load('img/whiteboard.jpg')
 
         # enter simulation / plotting loop
         while True: 
@@ -187,66 +172,33 @@ class Runner:
                        int(-b * scaling_term[1] + self.base_offset[1])) 
                        for a,b in zip(x,y)]
 
-            arm1.rotation = self.arm.q[0] + np.pi
-            arm2.rotation = self.arm.q[1] + arm1.rotation
-            arm3.rotation = self.arm.q[2] + arm2.rotation
-            arm1_image, arm1_rect = arm1.rotate()
-            arm2_image, arm2_rect = arm2.rotate()
-            arm3_image, arm3_rect = arm3.rotate()
+            arm1_image, arm1_rect = arm1.rotate(self.arm.q[0])
+            arm2_image, arm2_rect = arm2.rotate(self.arm.q[1] + arm1.rotation)
+            arm3_image, arm3_rect = arm3.rotate(self.arm.q[2] + arm2.rotation)
 
-            # center the joint of the arm at the offset location
-            arm1_rect.center += np.asarray(points[0])
-            arm1_rect.center += np.array([
-                                    -np.cos(arm1.rotation) * arm1.r,
-                                    np.sin(arm1.rotation) * arm1.r])
-
-            # center the joint of the arm at the offset location
-            arm2_rect.center += np.asarray(points[1])
-            arm2_rect.center += np.array([
-                                    -np.cos(arm2.rotation) * arm2.r,
-                                    np.sin(arm2.rotation) * arm2.r])
-
-            # center the joint of the arm at the offset location
-            arm3_rect.center += np.asarray(points[2])
-            arm3_rect.center += np.array([
-                                    -np.cos(arm3.rotation) * (arm3.length / 2.0 - 10),
-                                    np.sin(arm3.rotation) * (arm3.length / 2.0 - 10)])
+            # recenter the image locations appropriately
+            transform(arm1_rect, points[0], arm1)
+            transform(arm2_rect, points[1], arm2)
+            transform(arm3_rect, points[2], arm3)
+            arm3_rect.center += np.array([np.cos(arm3.rotation),
+                                          -np.sin(arm3.rotation)]) * -10
 
             # transparent upperarm line
-            rotation_upperarm = arm1.rotation - np.pi
-            line_upperarm = pygame.Surface((upperarm_length, upperarm_width),
-                    pygame.SRCALPHA, 32)
-            line_upperarm.fill(line_color)
-            line_upperarm = pygame.transform.rotate(line_upperarm, np.degrees(rotation_upperarm))
-            # because when rotated the image gets padded we need to offset from center
+            line_upperarm = pygame.transform.rotozoom(line_upperarm_base, np.degrees(arm1.rotation), 1)
             rect_upperarm = line_upperarm.get_rect()
-            line_upperarm_x = points[0][0] - rect_upperarm.width / 2.0 + np.cos(rotation_upperarm) * r_upperarm
-            line_upperarm_y = points[0][1] - rect_upperarm.height / 2.0 - np.sin(rotation_upperarm) * r_upperarm
+            transform_lines(rect_upperarm, points[0], arm1)
 
             # transparent forearm line
-            rotation_forearm = arm2.rotation - np.pi
-            line_forearm = pygame.Surface((forearm_length, forearm_width),
-                    pygame.SRCALPHA, 32)
-            line_forearm.fill(line_color)
-            line_forearm = pygame.transform.rotate(line_forearm, np.degrees(rotation_forearm))
-            # because when rotated the image gets padded we need to offset from center
+            line_forearm = pygame.transform.rotozoom(line_forearm_base, np.degrees(arm2.rotation), 1)
             rect_forearm = line_forearm.get_rect()
-            line_forearm_x = points[1][0] - rect_forearm.width / 2.0 + np.cos(rotation_forearm) * r_forearm
-            line_forearm_y = points[1][1] - rect_forearm.height / 2.0 - np.sin(rotation_forearm) * r_forearm
+            transform_lines(rect_forearm, points[1], arm2)
 
             # transparent hand line
-            rotation_hand = arm3.rotation - np.pi
-            line_hand = pygame.Surface((hand_length, hand_width),
-                    pygame.SRCALPHA, 32)
-            line_hand.fill(line_color)
-            line_hand = pygame.transform.rotate(line_hand, np.degrees(rotation_hand))
-            # because when rotated the image gets padded we need to offset from center
+            line_hand = pygame.transform.rotozoom(line_hand_base, np.degrees(arm3.rotation), 1)
             rect_hand = line_hand.get_rect()
-            line_hand_x = points[2][0] - rect_hand.width / 2.0 + np.cos(rotation_hand) * r_hand
-            line_hand_y = points[2][1] - rect_hand.height / 2.0 - np.sin(rotation_hand) * r_hand
+            transform_lines(rect_hand, points[2], arm3)
 
             # update trail
-
             if self.shell.pen_down is True:
                 self.pen_down()
             elif self.shell.pen_down is False and self.pen_lifted is False:
@@ -269,9 +221,9 @@ class Runner:
             # pygame.draw.lines(self.display, arm_color, False, points, 18)
 
             # draw transparent arm lines
-            self.display.blit(line_upperarm, (line_upperarm_x, line_upperarm_y))
-            self.display.blit(line_forearm, (line_forearm_x, line_forearm_y))
-            self.display.blit(line_hand, (line_hand_x, line_hand_y))
+            self.display.blit(line_upperarm, rect_upperarm) 
+            self.display.blit(line_forearm, rect_forearm)
+            self.display.blit(line_hand, rect_hand)
 
             # draw circles at shoulder
             pygame.draw.circle(self.display, black, points[0], 30)
