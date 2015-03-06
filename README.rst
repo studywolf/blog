@@ -14,7 +14,7 @@ Installation
 The control directory requires that you have docopt installed::
 
    pip install docopt
-   
+
 Additionally, there are a number of arm models available, if you 
 wish to use anything other than the 2 link arm coded in python, 
 then you will have to compile the arm. You can compile the arms by
@@ -38,3 +38,8 @@ Where ARM = (arm1 | arm2 | arm2_python | arm3), the control types
 available are CONTROL = (dmp | gc | trajectory | osc), and the tasks
 are those listed in the task directory, examples include 
 TASK = (follow | random | walk | write_numbers | write_words).
+
+If you would like to use the PyGame visualization you must have PyGame
+installed. To call up the PyGame visualization append --use_pygame=True to the
+end of your call.
+   
