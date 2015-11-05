@@ -63,11 +63,8 @@ class Control(control.Control):
         # calculate force 
         Fx = np.dot(Mx, x_des)
 
-        # tau = J^T * Fx + tau_grav, but gravity = 0
         # add in velocity compensation in GC space for stability
         self.u = np.dot(JEE.T, Fx).reshape(-1,) - np.dot(Mq, self.kv * arm.dq)
-        #self.u = np.dot(Mq, np.dot(JEE.T, x_des)).reshape(-1,) - np.dot(Mq, self.kv * arm.dq)
-        #self.u = np.dot(JEE.T, x_des).reshape(-1,) - np.dot(Mq, self.kv * arm.dq)
 
         # if null_control is selected and the task space has 
         # fewer DOFs than the arm, add a control signal in the 

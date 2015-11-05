@@ -15,9 +15,9 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
-from .DMPs import dmp as DMP
-from .DMPs import dmp_discrete as DMP_discrete
-from .DMPs import dmp_rhythmic as DMP_rhythmic
+from pydmps import dmp as DMP
+from pydmps import dmp_discrete as DMP_discrete
+from pydmps import dmp_rhythmic as DMP_rhythmic
 import trajectory
 
 import numpy as np
