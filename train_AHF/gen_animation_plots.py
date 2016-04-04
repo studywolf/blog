@@ -26,16 +26,17 @@ folder = "weights" if len(sys.argv) < 2 else sys.argv[1]
 total_num = 100 if len(sys.argv) < 3 else int(sys.argv[2])
 
 files = sorted(glob.glob('%s/rnn*'%folder))
+step = len(files) / total_num
 count = 0
-for ii in range(1, len(files), len(files) / total_num): 
+for ii in range(1, len(files), step):
     name = '%s/plots/%05i.png'%(folder, count)
     print 'generating plot %i...'%count
-    gen_data_plot(folder, ii, show_plot=False, save_plot=name)
+    gen_data_plot(folder, ii, show_plot=False, verbose=False, save_plot=name)
     count += 1
 # now generate 10 more plots of the last frame so the 
 # gif seems to pause a bit at the end
 for jj in range(10):
     name = '%s/plots/%05i.png'%(folder, count)
     print 'generating plot %i...'%count
-    gen_data_plot(folder, ii, show_plot=False, save_plot=name)
+    gen_data_plot(folder, ii, show_plot=False, verbose=False, save_plot=name)
     count += 1

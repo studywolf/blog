@@ -21,7 +21,7 @@ import glob
 import sys
 
 def gen_data_plot(folder="weights", index=-1, show_plot=True, 
-        save_plot=None, save_paths=False, verbose=False):
+        save_plot=None, save_paths=False, verbose=True):
 
     files = sorted(glob.glob('%s/rnn*'%folder))
 
@@ -41,7 +41,7 @@ def gen_data_plot(folder="weights", index=-1, show_plot=True,
     ax.plot(vals)
     ax.plot(range(len(vals)), np.ones(len(vals)) * min(vals), 'r--')
     plt.xlim([0, len(files)])
-    plt.ylim([10**-4, 10])
+    plt.ylim([10**-5, 10])
     plt.title('AHF training error')
     plt.xlabel('Training iterations')
     plt.ylabel('Error')

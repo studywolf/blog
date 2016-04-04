@@ -210,10 +210,9 @@ def test_plant():
     num_batches = 20000 # how many batches to run total
 
     import sys
-    # TODO: SUPER HACK FIX TO SOMETHING BETTER
-    sys.path.append("/home/tdewolf/Dropbox/code/arm-darpa")
-    sys.path.append("/home/wolf/Dropbox/code/arm-darpa")
-    from Arms.two_link.arm_python import Arm as Arm
+    # NOTE: Change to wherever you keep your arm models
+    sys.path.append("../../../studywolf_control/studywolf_control/")
+    from arms.two_link.arm_python import Arm as Arm
     print 'Plant is: ', Arm
     arm = Arm(dt=dt, init_q=[0.736134824578, 1.85227640003])
 
