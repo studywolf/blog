@@ -24,8 +24,6 @@ class Runner:
         # for learning, start with no knowledge about actions
         self.L = [(np.random.random((self.num_states,self.num_states))*2-1)*1e-1 \
                 for ii in range(len(self.u))]
-        # for ii in range(len(self.u)):
-        #     np.fill_diagonal(self.L[ii], -1*np.ones(self.num_states))
         
         # create some more for plotting later
         self.L_init = np.copy(self.L)
@@ -33,19 +31,15 @@ class Runner:
                 for ii in range(len(self.u))]
         for ii in range(len(self.u)):
             for jj in range(self.num_states):
+                # set the system state
                 self.x = self.domain[jj]
+                # measure the probability distribution of x
                 px_old = self.make_gauss(mean=self.x) 
-                px_old /= np.max(px_old)
-                px_old[np.where(px_old < 0)] = 0.0
+                # apply the control signal
                 self.physics(self.u[ii])
-                self.L_actual[ii][jj] = np.copy(self.px - px_old)
+                # calculate the change in the probability distribution
+                self.L_actual[ii][:,jj] = np.copy(self.px - px_old)
 
-            # offset = int((u - self.drift)/ 20.0 * 400.0)
-            # self.L_actual.append(
-            #     # moves away from current state
-            #     np.diag(np.ones(self.num_states)) * -1 +
-            #     # moves into state + u
-            #     np.diag(np.ones(self.num_states-abs(offset)), -offset))
         self.x = 0  # initial position
            
         self.gamma = 1e-1 # learning rate
@@ -60,7 +54,8 @@ class Runner:
         return np.exp(-(self.domain-mean)**2 / (2*var**2)) 
 
     def make_v(self, mean=0):
-        self.v = self.make_gauss(mean=mean,var=2) + self.make_gauss(mean=mean,var=.01)
+        self.v = self.make_gauss(mean=mean,var=2) + \
+                self.make_gauss(mean=mean,var=.01)
         self.v = self.v * 2 - 1
         self.v[np.where(self.v > 0)] = 1.0
 
@@ -93,7 +88,6 @@ class Runner:
         index = self.wu.argmax()
         # add in some exploration
         if int(np.random.random()*10) == 5: 
-            print 'here'
             index = np.random.choice(range(3))
         val = self.wu[index]
         self.wu = np.zeros(len(self.u))
@@ -121,6 +115,7 @@ class Runner:
         learn = self.gamma * np.outer(err, self.px) # learning_rate * err * activities
         self.L[index] += learn
 
+        # update the line plots
         self.px_line.set_data(range(self.num_states), self.px)
         self.Lpx_line0.set_data(range(self.num_states), np.dot(self.L[0], self.px))
         self.Lpx_line1.set_data(range(self.num_states), np.dot(self.L[1], self.px))
@@ -196,6 +191,7 @@ if __name__ == '__main__':
     axes[0].set_ylabel('Initial L operator')
     axes[1].set_ylabel('Learned L operator')
     axes[2].set_ylabel('Actual L operator')
+    axes[3].set_ylabel('Difference')
     plt.suptitle('Learning L operators')
     # plt.tight_layout()
     plt.show()

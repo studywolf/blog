@@ -7,7 +7,10 @@ class Runner:
 
     def __init__(self):
         self.num_states = 400
-        self.domain = np.linspace(-10, 10, self.num_states)
+        self.limit = 10
+        self.domain = np.linspace(-self.limit, 
+                                   self.limit, 
+                                   self.num_states)
 
         self.num_systems = 3
         self.x = np.zeros(self.num_systems)
@@ -16,11 +19,11 @@ class Runner:
         self.px = np.vstack([self.make_gauss() for ii in range(self.num_systems)])
 
         self.drift = -.15 # systems drifts left
-        self.highlander_mode = True # allow more than one action at a time?
+        self.highlander_mode = False # allow more than one action at a time?
 
-        # have a controller that pushes us left
-        # self.u = np.array([1, -1, 5, -5, 10, -10])
+        # action set
         self.u = np.array([0, .5, -.5])
+
         self.L = []
         for u in self.u:
             offset = int(u / 20.0 * 400.0)
@@ -40,7 +43,8 @@ class Runner:
         return np.exp(-(self.domain-mean)**2 / (2*var**2)) 
 
     def make_v(self, mean=0):
-        self.v = self.make_gauss(mean=mean,var=2) + self.make_gauss(mean=mean,var=.01)
+        self.v = self.make_gauss(mean=mean,var=2) + \
+                self.make_gauss(mean=mean,var=.01)
         self.v = self.v * 5 - 1
         self.v[np.where(self.v > 0)] = 1.0
 
