@@ -21,8 +21,8 @@ if clientID != -1: # if we connected successfully
 
     vrep.simxSynchronous(clientID,True)
 
-    joint_names = ['joint0', 'joint1']
-    cube_names = ['upper_arm', 'forearm', 'hand']
+    joint_names = ['shoulder', 'elbow']
+    cube_names = ['base', 'upperarm', 'forearm']
     joint_handles = []
     cube_handles = []
     joint_angles = {}
@@ -107,13 +107,12 @@ if clientID != -1: # if we connected successfully
         track_target.append(np.copy(target_xyz))
         target_xyz = np.asarray(target_xyz)
 
-        # get the (x,y,z) position of the hand
-        _, xyz = vrep.simxGetObjectPosition(clientID,
-                cube_handles[-1], 
-                -1, # retrieve absolute, not relative, position
-                vrep.simx_opmode_blocking)
-        if _ !=0 : raise Exception()
-        track_hand.append(np.copy(xyz))
+        # # get the (x,y,z) position of the hand
+        # _, xyz = vrep.simxGetObjectPosition(clientID,
+        #         cube_handles[-1], 
+        #         -1, # retrieve absolute, not relative, position
+        #         vrep.simx_opmode_blocking)
+        # if _ !=0 : raise Exception()
 
         for joint_handle in joint_handles: 
             # get the joint angles 
@@ -130,60 +129,65 @@ if clientID != -1: # if we connected successfully
             joint_velocities[joint_handle] = joint_velocity
         dq = np.array([joint_velocities[joint_handles[0]],
                        joint_velocities[joint_handles[1]]])
-        print dq
 
-        # calculate the Jacobian for the hand
-        JEE = np.zeros((3,2))
         q = np.array([joint_angles[joint_handles[0]],
                       joint_angles[joint_handles[1]]])
         # note that .15 is the distance to the center of 
         # the hand, which is the (x,y,z) returned from VREP
-        L = np.array([.4, .2]) # arm segment lengths
-        JEE[0][1] = L[1] * -np.sin(q[0]+q[1])
-        JEE[2][1] = L[1] * np.cos(q[0]+q[1])
-        JEE[0][0] = L[0] * -np.sin(q[0]) + JEE[0,1]
-        JEE[2][0] = L[0] * np.cos(q[0]) + JEE[1,1]
+        L = np.array([.42, .25]) # arm segment lengths
 
-        # # # get the Jacobians for the centres-of-mass for the arm segments 
+        xyz = np.array([L[0] * np.cos(q[0]) + L[1] * np.cos(q[0]+q[1]),
+                        0, 
+                        L[0] * np.sin(q[0]) + L[1] * np.sin(q[0]+q[1]) + .1])
+        track_hand.append(np.copy(xyz))
+        # calculate the Jacobian for the hand
+        JEE = np.zeros((3,2))
+        JEE[0,1] = L[1] * -np.sin(q[0]+q[1])
+        JEE[2,1] = L[1] * np.cos(q[0]+q[1]) 
+        JEE[0,0] = L[0] * -np.sin(q[0]) + JEE[0,1]
+        JEE[2,0] = L[0] * np.cos(q[0]) + JEE[2,1]
+
+        # get the Jacobians for the centres-of-mass for the arm segments 
         JCOM1 = np.zeros((6,2))
-        JCOM1[0,0] = L[0] / 2. * -np.sin(q[0]) 
-        JCOM1[1,0] = L[0] / 2. * np.cos(q[0]) 
+        JCOM1[0,0] = .22 * -np.sin(q[0]) # COM is in a weird place 
+        JCOM1[2,0] = .22 * np.cos(q[0]) # because of offset
         JCOM1[4,0] = 1.0
 
         JCOM2 = np.zeros((6,2))
-        JCOM2[:3] = np.copy(JEE)
+        JCOM2[0,1] = .15 * -np.sin(q[0]+q[1]) # COM is in a weird place 
+        JCOM2[2,1] = .15 * np.cos(q[0]+q[1]) # because of offset
         JCOM2[4,1] = 1.0
+        JCOM2[0,0] = L[0] * -np.sin(q[0]) + JCOM2[0,1]
+        JCOM2[2,0] = L[0] * np.cos(q[0]) + JCOM2[2,1]
         JCOM2[4,0] = 1.0
 
-        m = 5-1 # from VREP
-        i = 1.67e-3#m * .1**2 / 6.0 # from wikipedia
+        m = 1.0 # from VREP
+        i = 1e-3 * 10# from VREP
         M = np.diag([m, m, m, i, i, i])
 
         # generate the mass matrix in joint space
         Mq = np.dot(JCOM1.T, np.dot(M, JCOM1)) + \
              np.dot(JCOM2.T, np.dot(M, JCOM2))
 
+        # # TODO: why doesn't this work? 
         # Mx_inv = np.dot(JEE, np.dot(np.linalg.inv(Mq), JEE.T))
-        # u,s,v = np.linalg.svd(Mx_inv)
+        # Mu,Ms,Mv = np.linalg.svd(Mx_inv)
         # # cut off any singular values that could cause control problems
-        # for i in range(len(s)):
-        #     s[i] = 0 if s[i] < .00025 else 1./float(s[i])
-        # Mx = np.dot(v, np.dot(np.diag(s), u.T))
+        # for i in range(len(Ms)):
+        #     Ms[i] = 0 if Ms[i] < .00025 else 1./float(Ms[i])
+        # Mx = np.dot(Mv, np.dot(np.diag(Ms), Mu.T))
 
         # calculate desired movement in operational (hand) space 
-        kp = 400
+        kp = 10000
         kv = np.sqrt(kp)
         u_xyz = kp * (target_xyz - xyz)
 
-        # print u_xyz / kp 
-        u = np.dot(JEE.T, u_xyz) - kv * dq
-        # u = np.dot(JEE.T, u_xyz) - np.dot(Mq, kv * dq)
+        u = np.dot(JEE.T, u_xyz) - np.dot(Mq, kv * dq)
         # u = np.dot(JEE.T, np.dot(Mx, u_xyz)) - np.dot(Mq, kv * dq)
-        # u *= np.array([-1, 1])
         print 'u : ', u
 
-        joint_forces[joint_handles[0]] = u[0]
-        joint_forces[joint_handles[1]] = u[1]
+        joint_forces[joint_handles[0]] = -u[0]
+        joint_forces[joint_handles[1]] = -u[1]
 
         for joint_handle in joint_handles:
 
@@ -245,7 +249,7 @@ ax.plot(track_hand[:,0], track_hand[:,1], track_hand[:,2])
 # plot trajectory of target
 ax.plot(track_target[:,0], track_target[:,1], track_target[:,2], 'rx', mew=10)
 ax.set_xlim([-1, 1])
-ax.set_ylim([-1, 0])
+ax.set_ylim([-.5, .5])
 ax.set_zlim([0, 1])
 ax.legend()
 

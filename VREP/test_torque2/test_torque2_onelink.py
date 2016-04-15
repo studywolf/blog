@@ -21,8 +21,8 @@ if clientID != -1: # if we connected successfully
 
     vrep.simxSynchronous(clientID,True)
 
-    joint_names = ['joint0', 'joint1']
-    cube_names = ['upper_arm', 'forearm', 'hand']
+    joint_names = ['shoulder']
+    cube_names = ['base', 'upperarm']
     joint_handles = []
     cube_handles = []
     joint_angles = {}
@@ -114,6 +114,7 @@ if clientID != -1: # if we connected successfully
                 vrep.simx_opmode_blocking)
         if _ !=0 : raise Exception()
         track_hand.append(np.copy(xyz))
+        print xyz
 
         for joint_handle in joint_handles: 
             # get the joint angles 
@@ -128,62 +129,53 @@ if clientID != -1: # if we connected successfully
                     vrep.simx_opmode_blocking)
             if _ !=0 : raise Exception()
             joint_velocities[joint_handle] = joint_velocity
-        dq = np.array([joint_velocities[joint_handles[0]],
-                       joint_velocities[joint_handles[1]]])
+        dq = np.array([joint_velocities[joint_handles[0]]])
         print dq
 
         # calculate the Jacobian for the hand
-        JEE = np.zeros((3,2))
-        q = np.array([joint_angles[joint_handles[0]],
-                      joint_angles[joint_handles[1]]])
+        JEE = np.zeros((3,1))
+        q = np.array([joint_angles[joint_handles[0]]])
         # note that .15 is the distance to the center of 
         # the hand, which is the (x,y,z) returned from VREP
-        L = np.array([.4, .2]) # arm segment lengths
-        JEE[0][1] = L[1] * -np.sin(q[0]+q[1])
-        JEE[2][1] = L[1] * np.cos(q[0]+q[1])
-        JEE[0][0] = L[0] * -np.sin(q[0]) + JEE[0,1]
-        JEE[2][0] = L[0] * np.cos(q[0]) + JEE[1,1]
+        L = np.array([.3]) # arm segment lengths
+        JEE[0][0] = L[0] * -np.sin(q[0])
+        JEE[2][0] = L[0] * np.cos(q[0])
 
         # # # get the Jacobians for the centres-of-mass for the arm segments 
-        JCOM1 = np.zeros((6,2))
-        JCOM1[0,0] = L[0] / 2. * -np.sin(q[0]) 
-        JCOM1[1,0] = L[0] / 2. * np.cos(q[0]) 
+        JCOM1 = np.zeros((6,1))
+        JCOM1[0,0] = L[0] * -np.sin(q[0]) 
+        JCOM1[1,0] = L[0] * np.cos(q[0]) 
         JCOM1[4,0] = 1.0
 
-        JCOM2 = np.zeros((6,2))
-        JCOM2[:3] = np.copy(JEE)
-        JCOM2[4,1] = 1.0
-        JCOM2[4,0] = 1.0
-
-        m = 5-1 # from VREP
-        i = 1.67e-3#m * .1**2 / 6.0 # from wikipedia
-        M = np.diag([m, m, m, i, i, i])
+        m = 2.356 # from VREP
+        i = 4.375e-3#m * .1**2 / 6.0 # from wikipedia
+        M = np.diag([m, m, m, i, i, 1.25e-3])
 
         # generate the mass matrix in joint space
-        Mq = np.dot(JCOM1.T, np.dot(M, JCOM1)) + \
-             np.dot(JCOM2.T, np.dot(M, JCOM2))
+        Mq = np.dot(JCOM1.T, np.dot(M, JCOM1))
 
-        # Mx_inv = np.dot(JEE, np.dot(np.linalg.inv(Mq), JEE.T))
-        # u,s,v = np.linalg.svd(Mx_inv)
-        # # cut off any singular values that could cause control problems
-        # for i in range(len(s)):
-        #     s[i] = 0 if s[i] < .00025 else 1./float(s[i])
-        # Mx = np.dot(v, np.dot(np.diag(s), u.T))
+        Mx_inv = np.dot(JEE, np.dot(np.linalg.inv(Mq), JEE.T))
+        Mu,Ms,Mv = np.linalg.svd(Mx_inv)
+        # cut off any singular values that could cause control problems
+        for i in range(len(Ms)):
+            Ms[i] = 0 if Ms[i] < .00025 else 1./float(Ms[i])
+        Mx = np.dot(Mv, np.dot(np.diag(Ms), Mu.T))
 
         # calculate desired movement in operational (hand) space 
-        kp = 400
+        kp = 40000
         kv = np.sqrt(kp)
         u_xyz = kp * (target_xyz - xyz)
+        # u_xyz = np.dot(Mx, kp * (target_xyz - xyz))
 
         # print u_xyz / kp 
-        u = np.dot(JEE.T, u_xyz) - kv * dq
-        # u = np.dot(JEE.T, u_xyz) - np.dot(Mq, kv * dq)
-        # u = np.dot(JEE.T, np.dot(Mx, u_xyz)) - np.dot(Mq, kv * dq)
+        # u = np.dot(JEE.T, u_xyz) - kv * dq
+        # print 'kv*dq: ', kv * dq
+        # print 'Mq*kv*dq : ', np.dot(Mq, kv * dq)
+        u = np.dot(JEE.T, u_xyz) - np.dot(Mq, kv * dq)
         # u *= np.array([-1, 1])
         print 'u : ', u
 
-        joint_forces[joint_handles[0]] = u[0]
-        joint_forces[joint_handles[1]] = u[1]
+        joint_forces[joint_handles[0]] = -u[0]
 
         for joint_handle in joint_handles:
 
