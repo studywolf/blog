@@ -22,9 +22,7 @@ if clientID != -1: # if we connected successfully
     vrep.simxSynchronous(clientID,True)
 
     joint_names = ['shoulder', 'elbow']
-    cube_names = ['base', 'upperarm', 'forearm']
     joint_handles = []
-    cube_handles = []
     joint_angles = {}
     joint_velocities = {}
     joint_target_velocities = {}
@@ -55,17 +53,6 @@ if clientID != -1: # if we connected successfully
                 joint_handle,
                 joint_target_velocities[joint_handle], # target velocity
                 vrep.simx_opmode_oneshot)
-
-    # get the handle for our cubes and set up streaming
-    for name in cube_names:
-        _, handle = vrep.simxGetObjectHandle(clientID,
-                    name, vrep.simx_opmode_blocking) 
-        cube_handles.append(handle)
-        # start streaming the (x,y,z) position of the cubes
-        vrep.simxGetObjectPosition(clientID,
-                handle, 
-                -1, # retrieve absolute, not relative, position
-                vrep.simx_opmode_streaming)
 
     # get handle for target and set up streaming
     _, target_handle = vrep.simxGetObjectHandle(clientID,
@@ -106,13 +93,6 @@ if clientID != -1: # if we connected successfully
         if _ !=0 : raise Exception()
         track_target.append(np.copy(target_xyz))
         target_xyz = np.asarray(target_xyz)
-
-        # # get the (x,y,z) position of the hand
-        # _, xyz = vrep.simxGetObjectPosition(clientID,
-        #         cube_handles[-1], 
-        #         -1, # retrieve absolute, not relative, position
-        #         vrep.simx_opmode_blocking)
-        # if _ !=0 : raise Exception()
 
         for joint_handle in joint_handles: 
             # get the joint angles 
