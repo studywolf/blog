@@ -30,59 +30,31 @@ if clientID != -1: # if we connected successfully
     vrep.simxSynchronous(clientID,True)
 
     joint_names = ['shoulder', 'elbow']
-    joint_handles = []
     # joint target velocities discussed below
     joint_target_velocities = np.ones(len(joint_names)) * 10000.0
 
     # get the handles for each joint and set up streaming
-    for ii,name in enumerate(joint_names):
+    joint_handles = []
+    for name in joint_names:
         _, joint_handle = vrep.simxGetObjectHandle(clientID,
                 name, vrep.simx_opmode_blocking) 
         joint_handles.append(joint_handle)
 
-        # initialize the data collection from the joints
-        vrep.simxGetJointForce(clientID,
-                joint_handle,
-                vrep.simx_opmode_streaming)
-        vrep.simxGetJointPosition(clientID,
-                joint_handle,
-                vrep.simx_opmode_streaming)
-        vrep.simxGetObjectFloatParameter(clientID,
-                joint_handle,
-                2012, # parameter ID for angular velocity we want
-                vrep.simx_opmode_streaming)
-        # set the target velocities of each joint super high
-        # and then we'll control the max torque allowed (yeah, i know)
-        vrep.simxSetJointTargetVelocity(clientID,
-                joint_handle,
-                joint_target_velocities[ii], # target velocity
-                vrep.simx_opmode_oneshot)
-        # set the initial force to zero so it doesn't go crazy at the start
-        vrep.simxSetJointForce(clientID, 
-                joint_handle,
-                0, # force to apply
-                vrep.simx_opmode_blocking)
-
     # get handle for target and set up streaming
     _, target_handle = vrep.simxGetObjectHandle(clientID,
                     'target', vrep.simx_opmode_blocking) 
-    _, target_xyz = vrep.simxGetObjectPosition(clientID,
-                target_handle, 
-                -1, # retrieve absolute, not relative, position
-                vrep.simx_opmode_streaming)
 
-    # --------------------- Run the simulation
     dt = .01
     vrep.simxSetFloatingParameter(clientID, 
             vrep.sim_floatparam_simulation_time_step, 
             dt, # specify a simulation time step
             vrep.simx_opmode_oneshot)
+
+    # --------------------- Start the simulation
+
     # start our simulation in lockstep with our code
     vrep.simxStartSimulation(clientID,
             vrep.simx_opmode_blocking)
-
-    # After initialization of streaming, it will take a few ms before the 
-    # first value arrives, so check the return code
 
     count = 0
     track_hand = []
@@ -169,6 +141,9 @@ if clientID != -1: # if we connected successfully
         u *= -1 # because the joints on the arm are backwards
 
         for ii,joint_handle in enumerate(joint_handles):
+            # the way we're going to do force control is by setting 
+            # the target velocities of each joint super high and then 
+            # controlling the max torque allowed (yeah, i know)
 
             # get the current joint torque
             _, torque = \
