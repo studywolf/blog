@@ -27,13 +27,6 @@ if clientID != -1: # if we connected successfully
 
     # --------------------- Setup the simulation 
 
-    # Now try to retrieve data in a blocking fashion (i.e. a service call):
-    res, objs = vrep.simxGetObjects(clientID, 
-                                    vrep.sim_handle_all, 
-                                    vrep.simx_opmode_blocking)
-    if res != vrep.simx_return_ok:
-        raise Exception('Remote API function call returned with error code: ',res)
-
     vrep.simxSynchronous(clientID,True)
 
     joint_names = ['shoulder', 'elbow']
@@ -46,7 +39,6 @@ if clientID != -1: # if we connected successfully
         _, joint_handle = vrep.simxGetObjectHandle(clientID,
                 name, vrep.simx_opmode_blocking) 
         joint_handles.append(joint_handle)
-        print '%s handle: %i'%(name, joint_handle)
 
         # initialize the data collection from the joints
         vrep.simxGetJointForce(clientID,
