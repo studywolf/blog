@@ -1,6 +1,21 @@
+'''
+Copyright (C) 2016 Travis DeWolf
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+'''
 import numpy as np
 import vrep
-import time
 
 # close any open connections
 vrep.simxFinish(-1) 
@@ -23,10 +38,8 @@ if clientID != -1: # if we connected successfully
 
     joint_names = ['shoulder', 'elbow']
     joint_handles = []
-    joint_angles = {}
-    joint_velocities = {}
-    joint_target_velocities = {}
-    joint_forces = {}
+    # joint target velocities discussed below
+    joint_target_velocities = np.ones(len(joint_names)) * 10000.0
 
     # get the handles for each joint and set up streaming
     for ii,name in enumerate(joint_names):
@@ -48,11 +61,15 @@ if clientID != -1: # if we connected successfully
                 vrep.simx_opmode_streaming)
         # set the target velocities of each joint super high
         # and then we'll control the max torque allowed (yeah, i know)
-        joint_target_velocities[joint_handle] = 10000.0
         vrep.simxSetJointTargetVelocity(clientID,
                 joint_handle,
-                joint_target_velocities[joint_handle], # target velocity
+                joint_target_velocities[ii], # target velocity
                 vrep.simx_opmode_oneshot)
+        # set the initial force to zero so it doesn't go crazy at the start
+        vrep.simxSetJointForce(clientID, 
+                joint_handle,
+                0, # force to apply
+                vrep.simx_opmode_blocking)
 
     # get handle for target and set up streaming
     _, target_handle = vrep.simxGetObjectHandle(clientID,
@@ -62,10 +79,8 @@ if clientID != -1: # if we connected successfully
                 -1, # retrieve absolute, not relative, position
                 vrep.simx_opmode_streaming)
 
-
-
     # --------------------- Run the simulation
-    dt = .001
+    dt = .01
     vrep.simxSetFloatingParameter(clientID, 
             vrep.sim_floatparam_simulation_time_step, 
             dt, # specify a simulation time step
@@ -76,14 +91,11 @@ if clientID != -1: # if we connected successfully
 
     # After initialization of streaming, it will take a few ms before the 
     # first value arrives, so check the return code
-    time.sleep(.1)
 
     count = 0
     track_hand = []
     track_target = []
-    start_time = time.time()
-    # while time.time() - start_time < 10:
-    while count < .1:
+    while count < 1: # run for 1 simulated second
         
         # get the (x,y,z) position of the target
         _, target_xyz = vrep.simxGetObjectPosition(clientID,
@@ -91,35 +103,31 @@ if clientID != -1: # if we connected successfully
                 -1, # retrieve absolute, not relative, position
                 vrep.simx_opmode_blocking)
         if _ !=0 : raise Exception()
-        track_target.append(np.copy(target_xyz))
+        track_target.append(np.copy(target_xyz)) # store for plotting
         target_xyz = np.asarray(target_xyz)
 
-        for joint_handle in joint_handles: 
+        q = np.zeros(len(joint_handles))
+        dq = np.zeros(len(joint_handles))
+        for ii,joint_handle in enumerate(joint_handles): 
             # get the joint angles 
-            _, joint_angle = vrep.simxGetJointPosition(clientID,
+            _, q[ii] = vrep.simxGetJointPosition(clientID,
                     joint_handle,
                     vrep.simx_opmode_blocking)
             if _ !=0 : raise Exception()
-            joint_angles[joint_handle] = joint_angle
-            _, joint_velocity = vrep.simxGetObjectFloatParameter(clientID,
+            # get the joint velocity
+            _, dq[ii] = vrep.simxGetObjectFloatParameter(clientID,
                     joint_handle,
                     2012, # parameter ID for angular velocity of the joint
                     vrep.simx_opmode_blocking)
             if _ !=0 : raise Exception()
-            joint_velocities[joint_handle] = joint_velocity
-        dq = np.array([joint_velocities[joint_handles[0]],
-                       joint_velocities[joint_handles[1]]])
 
-        q = np.array([joint_angles[joint_handles[0]],
-                      joint_angles[joint_handles[1]]])
-        # note that .15 is the distance to the center of 
-        # the hand, which is the (x,y,z) returned from VREP
-        L = np.array([.42, .25]) # arm segment lengths
+        L = np.array([.42, .225]) # arm segment lengths
 
         xyz = np.array([L[0] * np.cos(q[0]) + L[1] * np.cos(q[0]+q[1]),
                         0, 
+                        # have to add .1 offset to z position
                         L[0] * np.sin(q[0]) + L[1] * np.sin(q[0]+q[1]) + .1])
-        track_hand.append(np.copy(xyz))
+        track_hand.append(np.copy(xyz)) # store for plotting
         # calculate the Jacobian for the hand
         JEE = np.zeros((3,2))
         JEE[0,1] = L[1] * -np.sin(q[0]+q[1])
@@ -130,12 +138,12 @@ if clientID != -1: # if we connected successfully
         # get the Jacobians for the centres-of-mass for the arm segments 
         JCOM1 = np.zeros((6,2))
         JCOM1[0,0] = .22 * -np.sin(q[0]) # COM is in a weird place 
-        JCOM1[2,0] = .22 * np.cos(q[0]) # because of offset
+        JCOM1[2,0] = .22 * np.cos(q[0])  # because of offset
         JCOM1[4,0] = 1.0
 
         JCOM2 = np.zeros((6,2))
         JCOM2[0,1] = .15 * -np.sin(q[0]+q[1]) # COM is in a weird place 
-        JCOM2[2,1] = .15 * np.cos(q[0]+q[1]) # because of offset
+        JCOM2[2,1] = .15 * np.cos(q[0]+q[1])  # because of offset
         JCOM2[4,1] = 1.0
         JCOM2[0,0] = L[0] * -np.sin(q[0]) + JCOM2[0,1]
         JCOM2[2,0] = L[0] * np.cos(q[0]) + JCOM2[2,1]
@@ -152,28 +160,23 @@ if clientID != -1: # if we connected successfully
         Mq = np.dot(JCOM1.T, np.dot(M1, JCOM1)) + \
              np.dot(JCOM2.T, np.dot(M2, JCOM2))
 
-        # # TODO: why doesn't this work? 
-        # Mx_inv = np.dot(JEE, np.dot(np.linalg.inv(Mq), JEE.T))
-        # Mu,Ms,Mv = np.linalg.svd(Mx_inv)
-        # # cut off any singular values that could cause control problems
-        # for i in range(len(Ms)):
-        #     Ms[i] = 0 if Ms[i] < .00025 else 1./float(Ms[i])
-        # Mx_inv = np.dot(Mv, np.dot(np.diag(Ms), Mu.T))
+        Mx_inv = np.dot(JEE, np.dot(np.linalg.inv(Mq), JEE.T))
+        Mu,Ms,Mv = np.linalg.svd(Mx_inv)
+        # cut off any singular values that could cause control problems
+        for i in range(len(Ms)):
+            Ms[i] = 0 if Ms[i] < 1e-5 else 1./float(Ms[i])
+        # numpy returns U,S,V.T, so have to transpose both here
+        Mx = np.dot(Mv.T, np.dot(np.diag(Ms), Mu.T))
 
         # calculate desired movement in operational (hand) space 
-        kp = 1000
+        kp = 100
         kv = np.sqrt(kp)
-        u_xyz = kp * (target_xyz - xyz)
-        # u_xyz = np.dot(Mx_inv, kp * (target_xyz - xyz))
+        u_xyz = np.dot(Mx, kp * (target_xyz - xyz))
 
         u = np.dot(JEE.T, u_xyz) - np.dot(Mq, kv * dq)
-        # u = np.dot(JEE.T, np.dot(Mx, u_xyz)) - np.dot(Mq, kv * dq)
-        print 'u : ', u
+        u *= -1 # because the joints on the arm are backwards
 
-        joint_forces[joint_handles[0]] = -u[0]
-        joint_forces[joint_handles[1]] = -u[1]
-
-        for joint_handle in joint_handles:
+        for ii,joint_handle in enumerate(joint_handles):
 
             # get the current joint torque
             _, torque = \
@@ -184,24 +187,23 @@ if clientID != -1: # if we connected successfully
 
             # if force has changed signs, 
             # we need to change the target velocity sign
-            if np.sign(torque) * np.sign(joint_forces[joint_handle]) < 0:
-                joint_target_velocities[joint_handle] = \
-                        joint_target_velocities[joint_handle] * -1
+            if np.sign(torque) * np.sign(u[ii]) < 0:
+                joint_target_velocities[ii] = \
+                        joint_target_velocities[ii] * -1
                 vrep.simxSetJointTargetVelocity(clientID,
                         joint_handle,
-                        joint_target_velocities[joint_handle], # target velocity
+                        joint_target_velocities[ii], # target velocity
                         vrep.simx_opmode_blocking)
             if _ !=0 : raise Exception()
             
             # and now modulate the force
             vrep.simxSetJointForce(clientID, 
                     joint_handle,
-                    abs(joint_forces[joint_handle]), # force to apply
+                    abs(u[ii]), # force to apply
                     vrep.simx_opmode_blocking)
             if _ !=0 : raise Exception()
 
-        # raw_input()
-        # move simulation ahead one
+        # move simulation ahead one time step
         vrep.simxSynchronousTrigger(clientID)
         count += dt
 
@@ -232,6 +234,7 @@ ax.plot([track_hand[0,0]], [track_hand[0,1]], [track_hand[0,2]], 'bx', mew=10)
 ax.plot(track_hand[:,0], track_hand[:,1], track_hand[:,2])
 # plot trajectory of target
 ax.plot(track_target[:,0], track_target[:,1], track_target[:,2], 'rx', mew=10)
+
 ax.set_xlim([-1, 1])
 ax.set_ylim([-.5, .5])
 ax.set_zlim([0, 1])
