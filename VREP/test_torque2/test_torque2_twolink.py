@@ -141,13 +141,16 @@ if clientID != -1: # if we connected successfully
         JCOM2[2,0] = L[0] * np.cos(q[0]) + JCOM2[2,1]
         JCOM2[4,0] = 1.0
 
-        m = 1.0 # from VREP
-        i = 1e-3 * 10# from VREP
-        M = np.diag([m, m, m, i, i, i])
+        m1 = 1.171e-0 # from VREP
+        i1 = 8.121e-3 # from VREP
+        M1 = np.diag([m1, m1, m1, i1, i1, 1.242e-3])
+        m2 = 7.804e-1 # from VREP
+        i2 = 3.954e-3 # from VREP
+        M2 = np.diag([m2, m2, m2, i2, i2, 1.242e-3])
 
         # generate the mass matrix in joint space
-        Mq = np.dot(JCOM1.T, np.dot(M, JCOM1)) + \
-             np.dot(JCOM2.T, np.dot(M, JCOM2))
+        Mq = np.dot(JCOM1.T, np.dot(M1, JCOM1)) + \
+             np.dot(JCOM2.T, np.dot(M2, JCOM2))
 
         # # TODO: why doesn't this work? 
         # Mx_inv = np.dot(JEE, np.dot(np.linalg.inv(Mq), JEE.T))
@@ -155,12 +158,13 @@ if clientID != -1: # if we connected successfully
         # # cut off any singular values that could cause control problems
         # for i in range(len(Ms)):
         #     Ms[i] = 0 if Ms[i] < .00025 else 1./float(Ms[i])
-        # Mx = np.dot(Mv, np.dot(np.diag(Ms), Mu.T))
+        # Mx_inv = np.dot(Mv, np.dot(np.diag(Ms), Mu.T))
 
         # calculate desired movement in operational (hand) space 
-        kp = 10000
+        kp = 1000
         kv = np.sqrt(kp)
         u_xyz = kp * (target_xyz - xyz)
+        # u_xyz = np.dot(Mx_inv, kp * (target_xyz - xyz))
 
         u = np.dot(JEE.T, u_xyz) - np.dot(Mq, kv * dq)
         # u = np.dot(JEE.T, np.dot(Mx, u_xyz)) - np.dot(Mq, kv * dq)
