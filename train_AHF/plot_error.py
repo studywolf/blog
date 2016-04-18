@@ -38,8 +38,9 @@ def gen_data_plot(folder="weights", index=-1, show_plot=True,
 
     plt.figure(figsize=(10,3))
     ax = plt.subplot2grid((1,3), (0,0), colspan=2)
-    ax.plot(vals)
-    ax.plot(range(len(vals)), np.ones(len(vals)) * min(vals), 'r--')
+    ax.loglog(vals)
+    ax.loglog(range(len(vals)), np.ones(len(vals)) * min(vals), 'r--')
+    ax.loglog(range(len(vals)), np.ones(len(vals)) * min(vals), 'r--')
     plt.xlim([0, len(files)])
     plt.ylim([10**-5, 10])
     plt.title('AHF training error')
