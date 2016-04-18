@@ -34,11 +34,8 @@ if clientID != -1: # if we connected successfully
     joint_target_velocities = np.ones(len(joint_names)) * 10000.0
 
     # get the handles for each joint and set up streaming
-    joint_handles = []
-    for name in joint_names:
-        _, joint_handle = vrep.simxGetObjectHandle(clientID,
-                name, vrep.simx_opmode_blocking) 
-        joint_handles.append(joint_handle)
+    joint_handles = [vrep.simxGetObjectHandle(clientID, 
+        name, vrep.simx_opmode_blocking)[1] for name in joint_names]
 
     # get handle for target and set up streaming
     _, target_handle = vrep.simxGetObjectHandle(clientID,
