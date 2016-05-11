@@ -8,6 +8,7 @@ class Runner:
     def __init__(self):
         self.num_states = 400
         self.limit = 10
+        self.dx = self.limit * 2.0 / self.num_states
         self.domain = np.linspace(-self.limit, 
                                    self.limit, 
                                    self.num_states)
@@ -24,6 +25,22 @@ class Runner:
         # action set
         self.u = np.array([0, .5, -.5])
 
+        # self.L = [np.zeros((self.num_states, self.num_states)) \
+        #         for ii in range(len(self.u))]
+        # for ii in range(len(self.u)):
+        #     for jj in range(self.num_states):
+        #         # set the system state
+        #         self.x = self.domain[jj]
+        #         # get the probability distribution of x
+        #         old_px = self.gen_px()
+        #         # apply the control signal
+        #         self.physics(self.u[ii])
+        #         # get the new probability distribution of x
+        #         px = self.gen_px()
+        #         # calculate the change in the probability distribution
+        #         # self.L_actual[ii][jj] = np.copy(px_old - px)
+        #         self.L_actual[ii][:,jj] = np.copy(px - old_px)
+ 
         self.L = []
         for u in self.u:
             offset = int(u / 20.0 * 400.0)
@@ -51,10 +68,22 @@ class Runner:
     def physics(self, u):
         for ii in range(self.num_systems):
             self.x[ii] += (self.drift + u[ii]) # simple physics
-            self.px[ii] = self.make_gauss(self.x[ii], self.var[ii]) 
-            self.px[ii] /= np.max(self.px[ii])
-            # clip at zero and normalize px
-            self.px[ii][np.where(self.px[ii] < 0)] = 0.0
+            self.x[ii] = min(self.limit, max(-self.limit, self.x[ii]))
+
+    def gen_px(self, x=None, var=None):
+        x = np.copy(self.x) if x is None else x
+        var = self.var if var is None else var
+
+        px = np.zeros((self.num_systems, self.num_states))
+        # TODO: rewrite this to avoid the for loop just using matrices 
+        for ii in range(self.num_systems):
+            px[ii] = self.make_gauss(x[ii], var[ii]) 
+            # make sure no negative values
+            px[ii][np.where(px[ii] < 0)] = 0.0
+            # make sure things sum to 1
+            px[ii] /= np.max(np.sum(px[ii]) * self.dx)
+        return px
+
 
     def anim_init(self):
         self.v_line.set_data([], [])
@@ -70,12 +99,13 @@ class Runner:
         self.wu = np.zeros((self.num_systems, len(self.u)))
         for ii, Li in enumerate(self.L):
             for jj in range(self.num_systems):
-                if self.highlander_mode is False: 
-                    self.wu[jj,ii] = min(1,
-                            max(0, np.dot(self.v, np.dot(Li, self.px[jj]))))
-                else:
+                # check to see if there can be only one
+                if self.highlander_mode is True: 
                     # don't clip it here so we can tell the actual winner 
                     self.wu[jj,ii] = np.dot(self.v, np.dot(Li, self.px[jj]))
+                else:
+                    self.wu[jj,ii] = min(1,
+                            max(0, np.dot(self.v, np.dot(Li, self.px[jj]))))
         # select the strongest action 
         if self.highlander_mode is True:
             for ii in range(self.num_systems):
@@ -85,16 +115,17 @@ class Runner:
                 # now clip it
                 self.wu[ii,index] = min(1, val)
 
-        print self.wu
-
         # track information for plotting
         self.track_position.append(np.copy(self.x))
         # get edges of value function
         road = np.where(self.v == 1)
         self.track_target.append(np.array([self.domain[road[0][0]], # left edge
                                            self.domain[road[0][-1]]])) # right edge
-        # simulate dynamics and get new state
+        # apply the control signal, simulate dynamics and get new state
         self.physics(np.dot(self.wu, self.u))
+        # get the new probability distribution of x
+        self.px = self.gen_px()
+
         # move the target around slowly
         self.make_v(np.sin(i*.1)*5)
 
