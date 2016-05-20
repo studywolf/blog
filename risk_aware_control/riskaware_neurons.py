@@ -4,6 +4,10 @@ import matplotlib.pyplot as plt
 from matplotlib import animation
 
 class Runner: 
+    """ In this class we're hooking up 200 neurons to the 'car',
+    so that half of them drive the car to the left, and half of 
+    them drive the car to the right. The risk-aware system needs
+    to control the car through these neurons. """
 
     def __init__(self):
         self.num_states = 200
@@ -15,16 +19,44 @@ class Runner:
 
         self.x = 0  # initial position
         self.var = .4 # variance in sensory information
-        self.px = self.make_gauss() # the initial state probability 
+        # the initial state probability 
+        self.px = self.make_gauss()
 
-        # constant slide of the system in this direction 
-        self.drift = 1.5 
-
-        # how often should the system randomly choose an action (0-1)
-        self.exploration = 0.0 
+        self.drift = 1.5 # constant slide of the system in this direction 
 
         # action set
-        self.u = np.array([0, .5, -1, 3, -5])
+        import nengo
+        model = nengo.Network()
+        # I think that the way for this to work is for the input 
+        # to these neurons to be something like direct stimulation,
+        # and relatively strong, so projecting in either 10 or 0 
+        # as the two options...at least initially. 
+        # TODO: train up a system where the input can be a range of values
+        # NOTE: this would possibly just be a whole other set of actions...
+        # so maybe the way to think about it is that activating each individual
+        # neuron is an action, and so is not activating each neuron. And then 
+        # if you want to be able to input a range of values that's just more actions.
+        with model: 
+            ensemble = nengo.Ensemble(n_neurons=200, dimensions=1) # dimensions is irrelevant
+
+            # TODO: is the input here supposed to be direct neural stimulation?
+            def get_input(t):
+                return self.u
+            node_in = nengo.Node(output=get_input, size_out=ensemblen_neurons) 
+            # send the input to directly stimulate each neuron
+            nengo.Connection(node_in, ensemble.neurons)
+
+            def set_output(t, x): 
+                self.neuron_activity = np.copy(x)
+            node_out = nengo.Node(output=set_output, size_in=1)
+
+            # half the neurons push to the left (negative weight)
+            # half the neurons push to the right (positive weight)
+            weights = np.random.random((200,1)) * 10.0 - 5.0
+            nengo.Connection(ensemble, node_out, 
+                    transform=weights)
+            # TODO: add in some noise
+
         # for learning, start with no knowledge about actions
         self.L = [(np.random.random((self.num_states,self.num_states))*2-1)*1e-1 \
                 for ii in range(len(self.u))]
@@ -44,7 +76,9 @@ class Runner:
                 # get the new probability distribution of x
                 px = self.gen_px()
                 # calculate the change in the probability distribution
+                # self.L_actual[ii][jj] = np.copy(px_old - px)
                 self.L_actual[ii][:,jj] = np.copy(px - old_px)
+            # self.L[ii] = np.copy(self.L_actual[ii])
 
         self.x = 0  # initial position
         self.gamma = 1e-1 # learning rate
@@ -68,10 +102,13 @@ class Runner:
         self.x += self.drift + u # simple physics
         self.x = min(self.limit, max(-self.limit, self.x))
 
-    def gen_px(self, x=None, var=None):
+    def gen_px(self, x=None, var=None, noise=False):
         x = np.copy(self.x) if x is None else x
         var = self.var if var is None else var
 
+        if noise is True: 
+            x += int(np.random.random() * 2)
+            x = min(self.limit, max(-self.limit, x))
         px = self.make_gauss(x, var) 
         # make sure no negative values
         px[np.where(px < 0)] = 0.0
@@ -120,7 +157,7 @@ class Runner:
         # simulate dynamics and get new state
         self.physics(np.dot(self.wu, self.u))
         # generate the new px
-        self.px = self.gen_px()
+        self.px = self.gen_px(noise=False)
         # move the target around slowly
         self.make_v(np.sin(i*.01)*(self.limit-1))
 
@@ -168,11 +205,6 @@ if __name__ == '__main__':
     X, Y = np.meshgrid(runner.domain, runner.domain)
     plt.figure(figsize=(9,9))
     for ii in range(len(runner.u)):
-        # axes.append(plt.subplot(1,3,ii))
-        # plt.axis('equal')
-        # runner.L[ii][0,0] = 1
-        # runner.L[ii][0,1] = -1
-        # plt.pcolormesh(X, Y, runner.L[ii])#, cmap='terrain_r')   
      
         # plot the starting vs ending vs actual L operators
         # plot a heat map showing sensor information

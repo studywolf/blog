@@ -4,6 +4,10 @@ import matplotlib.pyplot as plt
 from matplotlib import animation
 
 class Runner: 
+    """ The goal of this script is to be able to learn 
+    the L operators of several actions simultaneously, 
+    such that you don't have to choose only one action 
+    at a time during training. """ 
 
     def __init__(self):
         self.num_states = 200
@@ -15,13 +19,10 @@ class Runner:
 
         self.x = 0  # initial position
         self.var = .4 # variance in sensory information
-        self.px = self.make_gauss() # the initial state probability 
+        # the initial state probability 
+        self.px = self.make_gauss()
 
-        # constant slide of the system in this direction 
-        self.drift = 1.5 
-
-        # how often should the system randomly choose an action (0-1)
-        self.exploration = 0.0 
+        self.drift = 1.5 # constant slide of the system in this direction 
 
         # action set
         self.u = np.array([0, .5, -1, 3, -5])
@@ -44,7 +45,9 @@ class Runner:
                 # get the new probability distribution of x
                 px = self.gen_px()
                 # calculate the change in the probability distribution
+                # self.L_actual[ii][jj] = np.copy(px_old - px)
                 self.L_actual[ii][:,jj] = np.copy(px - old_px)
+            # self.L[ii] = np.copy(self.L_actual[ii])
 
         self.x = 0  # initial position
         self.gamma = 1e-1 # learning rate
@@ -68,10 +71,13 @@ class Runner:
         self.x += self.drift + u # simple physics
         self.x = min(self.limit, max(-self.limit, self.x))
 
-    def gen_px(self, x=None, var=None):
+    def gen_px(self, x=None, var=None, noise=False):
         x = np.copy(self.x) if x is None else x
         var = self.var if var is None else var
 
+        if noise is True: 
+            x += int(np.random.random() * 2)
+            x = min(self.limit, max(-self.limit, x))
         px = self.make_gauss(x, var) 
         # make sure no negative values
         px[np.where(px < 0)] = 0.0
@@ -120,7 +126,7 @@ class Runner:
         # simulate dynamics and get new state
         self.physics(np.dot(self.wu, self.u))
         # generate the new px
-        self.px = self.gen_px()
+        self.px = self.gen_px(noise=False)
         # move the target around slowly
         self.make_v(np.sin(i*.01)*(self.limit-1))
 

@@ -6,64 +6,57 @@ from matplotlib import animation
 class Runner: 
 
     def __init__(self):
-        self.num_states = 400
+        self.num_states = 200
         self.limit = 10
         self.dx = self.limit * 2.0 / self.num_states
         self.domain = np.linspace(-self.limit, 
                                    self.limit, 
-                                   self.num_states)
+                                   self.num_states)[:,None]
 
         self.num_systems = 3
-        self.x = np.zeros(self.num_systems)
         self.var = [3, 1, .5]
-        # the initial state probability 
-        self.px = np.vstack([self.make_gauss() for ii in range(self.num_systems)])
 
-        self.drift = -.15 # systems drifts left
+        self.drift = 0#-.15 # systems drifts left
         self.highlander_mode = False # allow more than one action at a time?
 
         # action set
         self.u = np.array([0, .5, -.5])
 
-        # self.L = [np.zeros((self.num_states, self.num_states)) \
-        #         for ii in range(len(self.u))]
-        # for ii in range(len(self.u)):
-        #     for jj in range(self.num_states):
-        #         # set the system state
-        #         self.x = self.domain[jj]
-        #         # get the probability distribution of x
-        #         old_px = self.gen_px()
-        #         # apply the control signal
-        #         self.physics(self.u[ii])
-        #         # get the new probability distribution of x
-        #         px = self.gen_px()
-        #         # calculate the change in the probability distribution
-        #         # self.L_actual[ii][jj] = np.copy(px_old - px)
-        #         self.L_actual[ii][:,jj] = np.copy(px - old_px)
+        self.L = np.zeros((len(self.var), 
+            len(self.u), self.num_states, self.num_states)) 
+        for ii in range(len(self.u)):
+            for jj in range(self.num_states):
+                # set the system state
+                self.x = np.ones(self.num_states) * self.domain[jj]
+                # get the probability distribution of x
+                old_px = self.gen_px()
+                # apply the control signal
+                self.physics(np.ones(self.num_systems) * self.u[ii])
+                # get the new probability distribution of x
+                px = self.gen_px()
+                # calculate the change in the probability distribution
+                self.L[:, ii, :, jj] = np.copy(px - old_px)
  
-        self.L = []
-        for u in self.u:
-            offset = int(u / 20.0 * 400.0)
-            self.L.append(
-                # moves away from current state
-                np.diag(np.ones(self.num_states)) * -1 +
-                # moves into state + u
-                np.diag(np.ones(self.num_states-abs(offset)), -offset))
+        # the initial state probability 
+        self.x = np.zeros(self.num_systems)
+        self.px = self.gen_px() 
 
         # also need a cost function (Gaussian to move towards the center)
         self.make_v()
 
         self.track_position = []
-        self.track_target = []
+        self.track_target1 = []
+        self.track_target2 = []
 
     def make_gauss(self, mean=0, var=.5):
-        return np.exp(-(self.domain-mean)**2 / (2*var**2)) 
+        return np.exp(-(self.domain-mean)**2 / (2.0*var**2)) 
 
     def make_v(self, mean=0):
-        self.v = self.make_gauss(mean=mean,var=2) + \
-                self.make_gauss(mean=mean,var=.01)
-        self.v = self.v * 5 - 1
-        self.v[np.where(self.v > 0)] = 1.0
+        # set up the road
+        self.v = self.make_gauss(mean=mean,var=2) * 5 - 1
+        self.v[np.where(self.v > .5)] = .5
+        # make a preference for being in the right lane
+        self.v += self.make_gauss(mean=mean+2,var=.6)
 
     def physics(self, u):
         for ii in range(self.num_systems):
@@ -77,7 +70,7 @@ class Runner:
         px = np.zeros((self.num_systems, self.num_states))
         # TODO: rewrite this to avoid the for loop just using matrices 
         for ii in range(self.num_systems):
-            px[ii] = self.make_gauss(x[ii], var[ii]) 
+            px[ii] = self.make_gauss(x[ii], var[ii]).flatten()
             # make sure no negative values
             px[ii][np.where(px[ii] < 0)] = 0.0
             # make sure things sum to 1
@@ -97,30 +90,42 @@ class Runner:
 
         # calculate the weights for the actions
         self.wu = np.zeros((self.num_systems, len(self.u)))
-        for ii, Li in enumerate(self.L):
-            for jj in range(self.num_systems):
-                # check to see if there can be only one
-                if self.highlander_mode is True: 
-                    # don't clip it here so we can tell the actual winner 
-                    self.wu[jj,ii] = np.dot(self.v, np.dot(Li, self.px[jj]))
-                else:
-                    self.wu[jj,ii] = min(1,
-                            max(0, np.dot(self.v, np.dot(Li, self.px[jj]))))
-        # select the strongest action 
-        if self.highlander_mode is True:
-            for ii in range(self.num_systems):
-                index = self.wu[ii].argmax()
-                val = self.wu[ii, index]
-                self.wu[ii] = np.zeros(len(self.u))
-                # now clip it
-                self.wu[ii,index] = min(1, val)
+        # for ii in range(len(self.u)):
+        #     for jj in range(self.num_systems):
+        #         # check to see if there can be only one
+        #         if self.highlander_mode is True: 
+        #             # don't clip it here so we can tell the actual winner 
+        #             self.wu[jj,ii] = np.dot(self.v, np.dot(self.L[:, ii], self.px[jj]))
+        #         else:
+        #             self.wu[jj,ii] = min(1,
+        #                     max(0, np.dot(self.v.T, np.dot(self.L[jj,ii], self.px[jj]))))
+        
+        for ii in range(self.num_systems):
+            for jj in range(len(self.u)):
+                # constrain so that you can only weight actions positively
+                self.wu[ii,jj] = max(0, np.dot(self.v.T, np.dot(self.L[ii,jj], self.px[ii])))
+            if np.sum(self.wu[ii]) != 0:
+                # constrain so that total output power sum_j u_j**2 = 1
+                self.wu[ii] /= np.sqrt(np.sum(self.wu[ii]**2))
+
+        # # select the strongest action 
+        # if self.highlander_mode is True:
+        #     for ii in range(self.num_systems):
+        #         index = self.wu[ii].argmax()
+        #         val = self.wu[ii, index]
+        #         self.wu[ii] = np.zeros(len(self.u))
+        #         # now clip it
+        #         self.wu[ii,index] = min(1, val)
 
         # track information for plotting
         self.track_position.append(np.copy(self.x))
         # get edges of value function
-        road = np.where(self.v == 1)
-        self.track_target.append(np.array([self.domain[road[0][0]], # left edge
+        road = np.where(self.v >= .5)
+        self.track_target1.append(np.array([self.domain[road[0][0]], # left edge
                                            self.domain[road[0][-1]]])) # right edge
+        lane = np.where(self.v >= .6)
+        self.track_target2.append(np.array([self.domain[lane[0][0]], # left edge
+                                           self.domain[lane[0][-1]]])) # right edge
         # apply the control signal, simulate dynamics and get new state
         self.physics(np.dot(self.wu, self.u))
         # get the new probability distribution of x
@@ -128,7 +133,6 @@ class Runner:
 
         # move the target around slowly
         self.make_v(np.sin(i*.1)*5)
-
 
         self.px_line0.set_data(range(self.num_states), self.px[0])
         self.px_line1.set_data(range(self.num_states), self.px[1])
@@ -152,6 +156,7 @@ class Runner:
         anim = animation.FuncAnimation(fig, self.anim_animate, 
                     init_func=self.anim_init, frames=500, 
                     interval=100, blit=True)
+
         plt.show()
 
 if __name__ == '__main__':
@@ -161,33 +166,81 @@ if __name__ == '__main__':
 
     # generate some nice plots
     fig = plt.figure(figsize=(8, 8))
+
+    # do some scaling to plot the same as seaborn heat plots
+    fix_for_plot = lambda x: (np.array(x).squeeze() / 
+            runner.limit / -2.0 + .5) * runner.num_states
+    track_target1 = fix_for_plot(runner.track_target1)
+    track_target2 = fix_for_plot(runner.track_target2)
+    track_position = fix_for_plot(runner.track_position)
     runner.track_position = np.array(runner.track_position)
-    time = runner.track_position.shape[0]
+
+    time = track_position.shape[0]
     X = np.arange(0, time)
     Y = runner.domain
     X, Y = np.meshgrid(X, Y)
+
+    plt.subplot(runner.num_systems+2, 1, 1)
+    plt.title('Position on road')
+
+    plt.subplot(runner.num_systems+2, 1, 4)
+    plt.fill_between(range(track_target2.shape[0]), 
+            track_target2[:,0], track_target2[:,1], facecolor='orange', alpha=.25)
+    plt.fill_between(range(track_target1.shape[0]), 
+            track_target1[:,0], track_target1[:,1], facecolor='y', alpha=.25)
+
+
     for ii in range(runner.num_systems):
         # plot borders, and path and heatmap for system ii
-        plt.subplot(runner.num_systems+1, 1, ii+1)
-        plt.plot(runner.track_position[:,ii], 'b', lw=5) # plot actual position of each system
-        plt.plot(runner.track_target, 'r--', lw=3) # plot road boundaries
+        plt.subplot(runner.num_systems+2, 1, ii+1)
+        # plot road boundaries
+        plt.plot(track_target1, 'r--', lw=5) 
+
         # plot a heat map showing sensor information
         heatmap = np.zeros((runner.num_states, time))
         for jj in range(time):
-            heatmap[:,jj] = runner.make_gauss(mean=runner.track_position[jj, ii], 
-                                              var=runner.var[ii])
-        plt.pcolormesh(X, Y, heatmap, cmap='terrain_r')   
+            heatmap[:,jj] = runner.make_gauss(
+                    mean=runner.track_position[jj, ii], 
+                    var=runner.var[ii]).flatten()
+        seaborn.heatmap(heatmap, xticklabels=False, yticklabels=False, 
+                cbar=False, cmap='Blues')   
 
+        # plot filled in zones of desirability, first the road
+        plt.fill_between(range(track_target1.shape[0]), 
+                track_target1[:,0], track_target1[:,1], 
+                facecolor='y', alpha=.25)
+        # and now the lane
+        plt.fill_between(range(track_target2.shape[0]), 
+                track_target2[:,0], track_target2[:,1], 
+                facecolor='orange', alpha=.25)
 
-        plt.title('Variance = %.2f'%runner.var[ii])
+        # plot actual position of each system
+        line, = plt.plot(track_position[:,ii], 'k', lw=3) 
+
+        plt.legend([line], ['Variance = %.2f'%runner.var[ii]], 
+                frameon=True, bbox_to_anchor=[1,1.05])
         plt.xlim([0, time-1])
+        plt.ylabel('Position')
 
         # plot the borders and path of each
-        plt.subplot(runner.num_systems+1, 1, 4)
-        plt.plot(runner.track_position[:,ii], lw=3) # plot actual position of each system
-    plt.plot(runner.track_target, 'r--', lw=3) # plot road boundaries
+        ax = plt.subplot(runner.num_systems+2, 1, 4)
+
+        plt.plot(track_position[:,ii], lw=3) # plot actual position of each system
+
     plt.xlim([0, time-1])
     plt.legend(runner.var, frameon=True, bbox_to_anchor=[1, 1.05])
+    plt.ylabel('Position')
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+
+    plt.subplot(runner.num_systems+2, 1, 5)
+    target_center = np.sin(X[0]*.1)*5 + 2
+    plt.plot((runner.track_position[:,0] - target_center)**2, lw=2)
+    plt.plot((runner.track_position[:,1] - target_center)**2, lw=2)
+    plt.plot((runner.track_position[:,2] - target_center)**2, lw=2)
+    plt.legend(runner.var, frameon=True, bbox_to_anchor=[1, 1.05])
+    plt.title('Distance from center of lane')
+    plt.ylabel('Squared error')
     plt.xlabel('Time')
 
     plt.tight_layout()
