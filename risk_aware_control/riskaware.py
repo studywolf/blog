@@ -17,7 +17,6 @@ class Runner:
         self.var = [3, 1, .5]
 
         self.drift = 0#-.15 # systems drifts left
-        self.highlander_mode = False # allow more than one action at a time?
 
         # action set
         self.u = np.array([0, .5, -.5])
@@ -90,15 +89,6 @@ class Runner:
 
         # calculate the weights for the actions
         self.wu = np.zeros((self.num_systems, len(self.u)))
-        # for ii in range(len(self.u)):
-        #     for jj in range(self.num_systems):
-        #         # check to see if there can be only one
-        #         if self.highlander_mode is True: 
-        #             # don't clip it here so we can tell the actual winner 
-        #             self.wu[jj,ii] = np.dot(self.v, np.dot(self.L[:, ii], self.px[jj]))
-        #         else:
-        #             self.wu[jj,ii] = min(1,
-        #                     max(0, np.dot(self.v.T, np.dot(self.L[jj,ii], self.px[jj]))))
         
         for ii in range(self.num_systems):
             for jj in range(len(self.u)):
@@ -107,15 +97,6 @@ class Runner:
             if np.sum(self.wu[ii]) != 0:
                 # constrain so that total output power sum_j u_j**2 = 1
                 self.wu[ii] /= np.sqrt(np.sum(self.wu[ii]**2))
-
-        # # select the strongest action 
-        # if self.highlander_mode is True:
-        #     for ii in range(self.num_systems):
-        #         index = self.wu[ii].argmax()
-        #         val = self.wu[ii, index]
-        #         self.wu[ii] = np.zeros(len(self.u))
-        #         # now clip it
-        #         self.wu[ii,index] = min(1, val)
 
         # track information for plotting
         self.track_position.append(np.copy(self.x))
