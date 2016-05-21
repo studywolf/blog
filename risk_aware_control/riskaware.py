@@ -6,6 +6,7 @@ from matplotlib import animation
 class Runner: 
 
     def __init__(self):
+        self.num_systems = 3
         self.num_states = 200
         self.limit = 10
         self.dx = self.limit * 2.0 / self.num_states
@@ -13,20 +14,19 @@ class Runner:
                                    self.limit, 
                                    self.num_states)[:,None]
 
-        self.num_systems = 3
-        self.var = [3, 1, .5]
+        self.var = np.array([3, 1, .5])
 
         self.drift = 0#-.15 # systems drifts left
 
         # action set
-        self.u = np.array([0, .5, -.5])
+        self.u = np.array([0, .1, .5, -.5])
 
         self.L = np.zeros((len(self.var), 
             len(self.u), self.num_states, self.num_states)) 
         for ii in range(len(self.u)):
             for jj in range(self.num_states):
                 # set the system state
-                self.x = np.ones(self.num_states) * self.domain[jj]
+                self.x = np.ones(self.num_systems) * self.domain[jj]
                 # get the probability distribution of x
                 old_px = self.gen_px()
                 # apply the control signal
@@ -34,7 +34,7 @@ class Runner:
                 # get the new probability distribution of x
                 px = self.gen_px()
                 # calculate the change in the probability distribution
-                self.L[:, ii, :, jj] = np.copy(px - old_px)
+                self.L[:, ii, :, jj] = np.copy(px - old_px).T
  
         # the initial state probability 
         self.x = np.zeros(self.num_systems)
@@ -58,22 +58,18 @@ class Runner:
         self.v += self.make_gauss(mean=mean+2,var=.6)
 
     def physics(self, u):
-        for ii in range(self.num_systems):
-            self.x[ii] += (self.drift + u[ii]) # simple physics
-            self.x[ii] = min(self.limit, max(-self.limit, self.x[ii]))
+        self.x += (self.drift + u) # simple physics
+        self.x = np.minimum(self.limit, np.maximum(-self.limit, self.x))
 
     def gen_px(self, x=None, var=None):
         x = np.copy(self.x) if x is None else x
         var = self.var if var is None else var
 
-        px = np.zeros((self.num_systems, self.num_states))
-        # TODO: rewrite this to avoid the for loop just using matrices 
-        for ii in range(self.num_systems):
-            px[ii] = self.make_gauss(x[ii], var[ii]).flatten()
-            # make sure no negative values
-            px[ii][np.where(px[ii] < 0)] = 0.0
-            # make sure things sum to 1
-            px[ii] /= np.max(np.sum(px[ii]) * self.dx)
+        px = self.make_gauss(x, var)
+        # make sure no negative values
+        px[np.where(px < 0)] = 0.0
+        # make sure things sum to 1
+        px /= np.sum(px, axis=0) * self.dx
         return px
 
 
@@ -89,13 +85,16 @@ class Runner:
 
         # calculate the weights for the actions
         self.wu = np.zeros((self.num_systems, len(self.u)))
-        
+        self.wu2 = np.zeros((self.num_systems, len(self.u)))
+      
         for ii in range(self.num_systems):
-            for jj in range(len(self.u)):
-                # constrain so that you can only weight actions positively
-                self.wu[ii,jj] = max(0, np.dot(self.v.T, np.dot(self.L[ii,jj], self.px[ii])))
+            # calculate weights for all actions simultaneously, v.T * L_i * p(x)
+            # constrain so that you can only weight actions positively
+            self.wu[ii] = np.maximum(self.wu[ii],
+                    np.einsum('lj,ij->i', self.v.T, 
+                        np.einsum('ijk,k->ij', self.L[ii], self.px[:,ii])))
+            # constrain so that total output power sum_j u_j**2 = 1
             if np.sum(self.wu[ii]) != 0:
-                # constrain so that total output power sum_j u_j**2 = 1
                 self.wu[ii] /= np.sqrt(np.sum(self.wu[ii]**2))
 
         # track information for plotting
@@ -115,9 +114,9 @@ class Runner:
         # move the target around slowly
         self.make_v(np.sin(i*.1)*5)
 
-        self.px_line0.set_data(range(self.num_states), self.px[0])
-        self.px_line1.set_data(range(self.num_states), self.px[1])
-        self.px_line2.set_data(range(self.num_states), self.px[2])
+        self.px_line0.set_data(range(self.num_states), self.px[:,0])
+        self.px_line1.set_data(range(self.num_states), self.px[:,1])
+        self.px_line2.set_data(range(self.num_states), self.px[:,2])
         self.v_line.set_data(range(self.num_states), self.v)
 
         return self.v_line, self.px_line0, self.px_line1, self.px_line2
@@ -132,7 +131,7 @@ class Runner:
         
         plt.xlim([0, self.num_states-1])
         plt.xticks(np.linspace(0, self.num_states, 11), np.linspace(-10, 10, 11))
-        plt.ylim([-1, 1])
+        plt.ylim([-1, 1.5])
 
         anim = animation.FuncAnimation(fig, self.anim_animate, 
                     init_func=self.anim_init, frames=500, 
