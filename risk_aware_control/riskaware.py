@@ -3,6 +3,9 @@ import seaborn
 import matplotlib.pyplot as plt
 from matplotlib import animation
 
+#TODO: RA control isn't working as it should be, as on initial commit where
+# the most variance means it stays closest to the center of the road, why! 
+
 class Runner: 
 
     def __init__(self):
