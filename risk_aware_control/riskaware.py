@@ -17,12 +17,12 @@ class Runner:
                                    self.limit, 
                                    self.num_states)[:,None]
 
-        self.var = np.array([3, 1, .5])
+        self.var = np.array([2, 1, .5])
 
         self.drift = 0#-.15 # systems drifts left
 
         # action set
-        self.u = np.array([0, .1, .5, -.5])
+        self.u = np.array([0, .25, -.25, .5, -.5])
 
         self.L = np.zeros((len(self.var), 
             len(self.u), self.num_states, self.num_states)) 
@@ -42,6 +42,8 @@ class Runner:
         # the initial state probability 
         self.x = np.zeros(self.num_systems)
         self.px = self.gen_px() 
+        
+        self.track_lane_center = []
 
         # also need a cost function (Gaussian to move towards the center)
         self.make_v()
@@ -56,9 +58,10 @@ class Runner:
     def make_v(self, mean=0):
         # set up the road
         self.v = self.make_gauss(mean=mean,var=2) * 5 - 1
-        self.v[np.where(self.v > .5)] = .5
+        self.v[np.where(self.v > .5)] = 1
         # make a preference for being in the right lane
         self.v += self.make_gauss(mean=mean+2,var=.6)
+        self.track_lane_center.append(mean+2)
 
     def physics(self, u):
         self.x += (self.drift + u) # simple physics
@@ -70,7 +73,7 @@ class Runner:
 
         px = self.make_gauss(x, var)
         # make sure no negative values
-        px[np.where(px < 0)] = 0.0
+        px[np.where(px < .1)] = 0.0
         # make sure things sum to 1
         px /= np.sum(px, axis=0) * self.dx
         return px
@@ -217,7 +220,7 @@ if __name__ == '__main__':
     ax.set_yticklabels([])
 
     plt.subplot(runner.num_systems+2, 1, 5)
-    target_center = np.sin(X[0]*.1)*5 + 2
+    target_center = np.array(runner.track_lane_center)[:-1]
     plt.plot((runner.track_position[:,0] - target_center)**2, lw=2)
     plt.plot((runner.track_position[:,1] - target_center)**2, lw=2)
     plt.plot((runner.track_position[:,2] - target_center)**2, lw=2)
