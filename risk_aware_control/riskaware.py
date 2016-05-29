@@ -1,10 +1,7 @@
 import numpy as np
-import seaborn
+# import seaborn
 import matplotlib.pyplot as plt
 from matplotlib import animation
-
-#TODO: RA control isn't working as it should be, as on initial commit where
-# the most variance means it stays closest to the center of the road, why! 
 
 class Runner: 
 
@@ -22,7 +19,7 @@ class Runner:
         self.drift = 0#-.15 # systems drifts left
 
         # action set
-        self.u = np.array([0, .25, -.25, .5, -.5])
+        self.u = np.array([0, 1, -1, .5, -.5, .25, -.25])
 
         self.L = np.zeros((len(self.var), 
             len(self.u), self.num_states, self.num_states)) 
@@ -58,7 +55,7 @@ class Runner:
     def make_v(self, mean=0):
         # set up the road
         self.v = self.make_gauss(mean=mean,var=2) * 5 - 1
-        self.v[np.where(self.v > .5)] = 1
+        self.v[np.where(self.v > .5)] = .5
         # make a preference for being in the right lane
         self.v += self.make_gauss(mean=mean+2,var=.6)
         self.track_lane_center.append(mean+2)
@@ -73,7 +70,7 @@ class Runner:
 
         px = self.make_gauss(x, var)
         # make sure no negative values
-        px[np.where(px < .1)] = 0.0
+        px[np.where(px < 0)] = 0.0
         # make sure things sum to 1
         px /= np.sum(px, axis=0) * self.dx
         return px
@@ -91,12 +88,11 @@ class Runner:
 
         # calculate the weights for the actions
         self.wu = np.zeros((self.num_systems, len(self.u)))
-        self.wu2 = np.zeros((self.num_systems, len(self.u)))
       
         for ii in range(self.num_systems):
             # calculate weights for all actions simultaneously, v.T * L_i * p(x)
             # constrain so that you can only weight actions positively
-            self.wu[ii] = np.maximum(self.wu[ii],
+            self.wu[ii] = np.maximum(np.ones(len(self.u)), 
                     np.einsum('lj,ij->i', self.v.T, 
                         np.einsum('ijk,k->ij', self.L[ii], self.px[:,ii])))
             # constrain so that total output power sum_j u_j**2 = 1
@@ -153,12 +149,9 @@ if __name__ == '__main__':
     # generate some nice plots
     fig = plt.figure(figsize=(8, 8))
 
-    # do some scaling to plot the same as seaborn heat plots
-    fix_for_plot = lambda x: (np.array(x).squeeze() / 
-            runner.limit / -2.0 + .5) * runner.num_states
-    track_target1 = fix_for_plot(runner.track_target1)
-    track_target2 = fix_for_plot(runner.track_target2)
-    track_position = fix_for_plot(runner.track_position)
+    track_target1 = np.array(runner.track_target1).squeeze()
+    track_target2 = np.array(runner.track_target2).squeeze()
+    track_position = np.array(runner.track_position).squeeze()
     runner.track_position = np.array(runner.track_position)
 
     time = track_position.shape[0]
@@ -170,10 +163,10 @@ if __name__ == '__main__':
     plt.title('Position on road')
 
     plt.subplot(runner.num_systems+2, 1, 4)
-    plt.fill_between(range(track_target2.shape[0]), 
-            track_target2[:,0], track_target2[:,1], facecolor='orange', alpha=.25)
     plt.fill_between(range(track_target1.shape[0]), 
-            track_target1[:,0], track_target1[:,1], facecolor='y', alpha=.25)
+            track_target1[:,0], track_target1[:,1], facecolor='y', alpha=.15)
+    plt.fill_between(range(track_target2.shape[0]), 
+            track_target2[:,0], track_target2[:,1], facecolor='orange', alpha=.45)
 
 
     for ii in range(runner.num_systems):
@@ -188,17 +181,16 @@ if __name__ == '__main__':
             heatmap[:,jj] = runner.make_gauss(
                     mean=runner.track_position[jj, ii], 
                     var=runner.var[ii]).flatten()
-        seaborn.heatmap(heatmap, xticklabels=False, yticklabels=False, 
-                cbar=False, cmap='Blues')   
+        plt.pcolormesh(X, Y, heatmap, cmap='Blues')   
 
         # plot filled in zones of desirability, first the road
         plt.fill_between(range(track_target1.shape[0]), 
                 track_target1[:,0], track_target1[:,1], 
-                facecolor='y', alpha=.25)
+                facecolor='y', alpha=.15)
         # and now the lane
         plt.fill_between(range(track_target2.shape[0]), 
                 track_target2[:,0], track_target2[:,1], 
-                facecolor='orange', alpha=.25)
+                facecolor='orange', alpha=.45)
 
         # plot actual position of each system
         line, = plt.plot(track_position[:,ii], 'k', lw=3) 
