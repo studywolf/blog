@@ -268,7 +268,7 @@ def test_plant():
     for ii in range(last_trial+1, num_batches):
         print '============================================='
         print 'training batch ', ii
-        err = rnn.run_batches(plant, None, max_epochs=batch_size,
+        err = rnn.run_epochs(plant, None, max_epochs=batch_size,
                         optimizer=HessianFree(CG_iter=96, init_damping=100))
         # save the weights to file, track trial and error 
         err = rnn.best_error
