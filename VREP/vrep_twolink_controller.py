@@ -87,7 +87,7 @@ if clientID != -1: # if we connected successfully
         xyz = np.array([L[0] * np.cos(q[0]) + L[1] * np.cos(q[0]+q[1]),
                         0, 
                         # have to add .1 offset to z position
-                        L[0] * np.sin(q[0]) + L[1] * np.sin(q[0]+q[1]) + .1])
+                        L[0] * np.sin(q[0]) + L[1] * np.sin(q[0]+q[1]) + .15])
         track_hand.append(np.copy(xyz)) # store for plotting
         # calculate the Jacobian for the hand
         JEE = np.zeros((3,2))
@@ -110,16 +110,21 @@ if clientID != -1: # if we connected successfully
         JCOM2[2,0] = L[0] * np.cos(q[0]) + JCOM2[2,1]
         JCOM2[4,0] = 1.0
 
-        m1 = 1.171e-0 # from VREP
-        i1 = 8.121e-3 # from VREP
-        M1 = np.diag([m1, m1, m1, i1, i1, 1.242e-3])
-        m2 = 7.804e-1 # from VREP
-        i2 = 3.954e-3 # from VREP
-        M2 = np.diag([m2, m2, m2, i2, i2, 1.242e-3])
+        m1 = .1 # from VREP
+        i1 = .05 # from VREP
+        M1 = np.diag([m1, m1, m1, i1, i1, i1])
+        m2 = .1 # from VREP
+        i2 = .05 # from VREP
+        M2 = np.diag([m2, m2, m2, i2, i2, i2])
 
         # generate the mass matrix in joint space
         Mq = np.dot(JCOM1.T, np.dot(M1, JCOM1)) + \
              np.dot(JCOM2.T, np.dot(M2, JCOM2))
+
+        # compensate for gravity
+        gravity = np.array([0, 0, -9.81, 0, 0, 0,])
+        Mq_g = np.dot(JCOM1.T, np.dot(M1, gravity)) + \
+                np.dot(JCOM2.T, np.dot(M2, gravity))
 
         Mx_inv = np.dot(JEE, np.dot(np.linalg.inv(Mq), JEE.T))
         Mu,Ms,Mv = np.linalg.svd(Mx_inv)
@@ -134,7 +139,7 @@ if clientID != -1: # if we connected successfully
         kv = np.sqrt(kp)
         u_xyz = np.dot(Mx, kp * (target_xyz - xyz))
 
-        u = np.dot(JEE.T, u_xyz) - np.dot(Mq, kv * dq)
+        u = np.dot(JEE.T, u_xyz) - np.dot(Mq, kv * dq) - Mq_g
         u *= -1 # because the joints on the arm are backwards
 
         for ii,joint_handle in enumerate(joint_handles):
