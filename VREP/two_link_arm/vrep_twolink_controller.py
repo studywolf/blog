@@ -110,12 +110,12 @@ if clientID != -1: # if we connected successfully
         JCOM2[2,0] = L[0] * np.cos(q[0]) + JCOM2[2,1]
         JCOM2[4,0] = 1.0
 
-        m1 = .1 # from VREP
-        i1 = .05 # from VREP
-        M1 = np.diag([m1, m1, m1, i1, i1, i1])
-        m2 = .1 # from VREP
-        i2 = .05 # from VREP
-        M2 = np.diag([m2, m2, m2, i2, i2, i2])
+        m1 = 1 # from VREP
+        i1 = .5 # from VREP
+        M1 = np.diag([m1, m1, m1, i1, i1, i1]) * 2
+        m2 = 2 # from VREP
+        i2 = .1 # from VREP
+        M2 = np.diag([m2, m2, m2, i2, i2, i2]) * 2
 
         # generate the mass matrix in joint space
         Mq = np.dot(JCOM1.T, np.dot(M1, JCOM1)) + \
