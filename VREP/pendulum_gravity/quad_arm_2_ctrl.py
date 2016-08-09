@@ -61,7 +61,7 @@ try:
 
         # --------------------- Start the simulation
 
-        dt = .01
+        dt = .001
         vrep.simxSetFloatingParameter(clientID, 
                 vrep.sim_floatparam_simulation_time_step, 
                 dt, # specify a simulation time step
@@ -75,7 +75,7 @@ try:
         track_hand = []
         track_target = []
         target_index = 0
-        change_target_time = dt*300
+        change_target_time = dt*10000
 
         # NOTE: main loop starts here ---------------------------------------------
         while count < len(target_positions) * change_target_time: # run this many seconds
