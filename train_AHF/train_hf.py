@@ -146,7 +146,7 @@ class PlantArm(PlantFD):
         self.state = self.squashing(state)
 
         if np.isnan(np.sum(self.state)):
-            print self.state
+            print(self.state)
             raise Exception
         return self.state[:x.shape[0]]
         # NOTE: generally x will be the same shape as state, this just
@@ -213,7 +213,7 @@ def test_plant():
     # NOTE: Change to wherever you keep your arm models
     sys.path.append("../../../studywolf_control/studywolf_control/")
     from arms.two_link.arm_python import Arm as Arm
-    print 'Plant is: ', Arm
+    print('Plant is: %s' % str(Arm))
     arm = Arm(dt=dt, init_q=[0.736134824578, 1.85227640003])
 
     num_states = arm.DOF * 2 # are states are [positions, velocities]
@@ -229,15 +229,15 @@ def test_plant():
     if len(files) > 0:
         # if weights found, load them up and keep going from last trial
         W = np.load(files[-1])['arr_0'] 
-        print 'loading from ', files[-1]
+        print('loading from %s' % files[-1])
         last_trial = int(files[-1].split('weights/rnn_weights-trial')[1].split('-err')[0])
-        print 'last_trial: ', last_trial
+        print('last_trial: %i' % last_trial)
     else:
         # if no weights found, start fresh with new random seed
         W = None
         last_trial = -1
         seed = np.random.randint(100000000)
-        print 'seed : ', seed
+        print('seed : %i' % seed)
         np.random.seed(seed) 
 
     # specify the network structure and loss functions
@@ -266,18 +266,18 @@ def test_plant():
     rnn.W[offset:W_end] = np.eye(4).flatten()
 
     for ii in range(last_trial+1, num_batches):
-        print '============================================='
-        print 'training batch ', ii
+        print('=============================================')
+        print('training batch %i' % ii)
         err = rnn.run_epochs(plant, None, max_epochs=batch_size,
                         optimizer=HessianFree(CG_iter=96, init_damping=100))
         # save the weights to file, track trial and error 
         err = rnn.best_error
         name = 'weights/rnn_weights-trial%04i-err%.5f'%(ii, err) 
         np.savez_compressed(name, rnn.W)
-        print '============================================='
-        print 'network: ', name
-        print 'final error: ', err 
-        print '============================================='
+        print('=============================================')
+        print('network: %s' % name)
+        print('final error: %f' % err)
+        print('=============================================')
 
     return rnn.best_error
 

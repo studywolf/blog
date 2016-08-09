@@ -18,12 +18,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import nengo
 import numpy as np
 
-from Arm import Arm2Link
+import Arm; reload(Arm)
 
 run_in_GUI = True 
 
 # set the initial position of the arm
-arm = Arm2Link()
+arm = Arm.Arm2Link(dt=1e-3)
 arm.reset(q=[np.pi/5.5, np.pi/1.7], dq=[0, 0])
 
 """Generate the Nengo model that will control the arm."""
@@ -38,14 +38,14 @@ with model:
         data = np.hstack([arm.q0, arm.q1, arm.dq0, arm.dq1, arm.x]) # data returned from node to model
 
         # visualization code -----------------------------------------------------
-        scale = 30
+        scale = 15
         len0 = arm.l1 * scale
         len1 = arm.l2 * scale
         
         angles = data[:3]
         angle_offset = np.pi/2
         x1 = 50
-        y1 = 100
+        y1 = 50
         x2 = x1 + len0 * np.sin(angle_offset-angles[0])
         y2 = y1 - len0 * np.cos(angle_offset-angles[0])
         x3 = x2 + len1 * np.sin(angle_offset-angles[0] - angles[1])
@@ -67,7 +67,7 @@ with model:
     input_node = nengo.Node(output=[1, .1])
 
     # to send a target to an ensemble which then connections to the arm
-    ens = nengo.Ensemble(n_neurons=500, dimensions=2, radius=np.sqrt(20))
+    ens = nengo.Ensemble(n_neurons=500, dimensions=2, radius=20)
     nengo.Connection(input_node, ens[:2]) # to send target info to ensemble
 
     # connect ens to arm

@@ -20,16 +20,17 @@ import matplotlib.pyplot as plt
 import glob
 import sys
 
-def gen_data_plot(folder="weights", index=-1, show_plot=True, 
+def gen_data_plot(folder="weights", index=None, show_plot=True, 
         save_plot=None, save_paths=False, verbose=True):
 
     files = sorted(glob.glob('%s/rnn*'%folder))
+    files = files[:index] if index is not None else files
 
     # plot the values over time
     vals = []
 
-    for ii,name in enumerate(files[:index]):
-        if verbose: print name
+    for ii,name in enumerate(files):
+        if verbose: print(name)
         name = name.split('err')[1]
         name = name.split('.npz')[0]
         vals.append(float(name))
@@ -56,7 +57,7 @@ def gen_data_plot(folder="weights", index=-1, show_plot=True,
     # NOTE: Change this path to wherever your plant model is kept! 
     sys.path.append("../../../studywolf_control/studywolf_control/")
     from arms.two_link.arm_python import Arm as Arm
-    if verbose: print 'Plant is: ', Arm
+    if verbose: print('Plant is: %s' % str(Arm))
     arm = Arm(dt=dt, init_q=[0.736134824578, 1.85227640003])
 
     from hessianfree import RNNet
@@ -76,8 +77,8 @@ def gen_data_plot(folder="weights", index=-1, show_plot=True,
     plant = PlantArm(arm, targets=targets, 
                     init_state=init_state, eps=eps)
 
+    index = -1 if index is None else index
     W = np.load(files[index])['arr_0'] 
-    last_trial = -1
 
     # make sure this network is the same as the one you trained! 
     from hessianfree.loss_funcs import SquaredError, SparseL2
@@ -142,7 +143,7 @@ if __name__ == '__main__':
     else:
         folder = sys.argv[1]
     if len(sys.argv) < 3:
-        index = -1
+        index = None
     else:
         index = int(sys.argv[2])
 
