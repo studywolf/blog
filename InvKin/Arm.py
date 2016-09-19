@@ -26,9 +26,12 @@ class Arm3Link:
         """Set up the basic parameters of the arm.
         All lists are in order [shoulder, elbow, wrist].
 
-        :param list q: the initial joint angles of the arm
-        :param list q0: the default (resting state) joint configuration
-        :param list L: the arm segment lengths
+        q : np.array
+            the initial joint angles of the arm
+        q0 : np.array
+            the default (resting state) joint configuration
+        L : np.array
+            the arm segment lengths
         """
         # initial joint angles
         self.q = [math.pi/4, math.pi/4, 0] if q is None else q
@@ -45,8 +48,11 @@ class Arm3Link:
         a given set of joint angle values [shoulder, elbow, wrist],
         and the above defined arm segment lengths, L
 
-        :param list q: the list of current joint angles
-        :returns list: the [x,y] position of the arm
+        q : np.array
+            the list of current joint angles
+
+        returns : list
+            the [x,y] position of the arm
         """
         if q is None:
             q = self.q
@@ -70,8 +76,11 @@ class Arm3Link:
         using constraint based minimization, constraint is to match hand (x,y),
         minimize the distance of each joint from it's default position (q0).
 
-        :param list xy: a tuple of the desired xy position of the arm
-        :returns list: the optimal [shoulder, elbow, wrist] angle configuration
+        xy : tuple
+            the desired xy position of the arm
+
+        returns : list
+            the optimal [shoulder, elbow, wrist] angle configuration
         """
 
         def distance_to_default(q, *args):
@@ -83,8 +92,11 @@ class Arm3Link:
             state more for higher weighted joints than those with a lower
             weight.
 
-            :param list q: the list of current joint angles
-            :returns scalar: euclidean distance to the default arm position
+            q : np.array
+                the list of current joint angles
+
+            returns : scalar
+                euclidean distance to the default arm position
             """
             # weights found with trial and error,
             # get some wrist bend, but not much
@@ -97,8 +109,13 @@ class Arm3Link:
             a given set of joint angle values [shoulder, elbow, wrist],
             and the above defined arm segment lengths, L
 
-            :param list q: the list of current joint angles
-            :returns: the difference between current and desired x position
+            q : np.array
+                the list of current joint angles
+            xy : np.array
+                current xy position (not used)
+
+            returns : np.array
+                the difference between current and desired x position
             """
             x = (self.L[0]*np.cos(q[0]) + self.L[1]*np.cos(q[0]+q[1]) +
                  self.L[2]*np.cos(np.sum(q))) - xy[0]
@@ -109,17 +126,43 @@ class Arm3Link:
             a given set of joint angle values [shoulder, elbow, wrist],
             and the above defined arm segment lengths, L
 
-            :param list q: the list of current joint angles
-            :returns: the difference between current and desired y position
+            q : np.array
+                the list of current joint angles
+            xy : np.array
+                current xy position (not used)
+            returns : np.array
+                the difference between current and desired y position
             """
             y = (self.L[0]*np.sin(q[0]) + self.L[1]*np.sin(q[0]+q[1]) +
                  self.L[2]*np.sin(np.sum(q))) - xy[1]
             return y
 
         def joint_limits_upper_constraint(q, xy):
+            """Used in the function minimization such that the output from
+            this function must be greater than 0 to be successfully passed.
+
+            q : np.array
+                the current joint angles
+            xy : np.array
+                current xy position (not used)
+
+            returns : np.array
+                all > 0 if constraint matched
+            """
             return self.max_angles - q
 
         def joint_limits_lower_constraint(q, xy):
+            """Used in the function minimization such that the output from
+            this function must be greater than 0 to be successfully passed.
+
+            q : np.array
+                the current joint angles
+            xy : np.array
+                current xy position (not used)
+
+            returns : np.array
+                all > 0 if constraint matched
+            """
             return q - self.min_angles
 
         return scipy.optimize.fmin_slsqp(
