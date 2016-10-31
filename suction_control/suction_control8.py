@@ -1,5 +1,6 @@
-""" An implementation based on the 2-link arm plant and controller from
-    (Slotine & Sastry, 1983).
+""" An implementation of the 2-link arm plant and controller
+    from (Slotine & Sastry, 1983). This version implements
+    the plant with the varying load, mu.
 """
 
 import matplotlib.pyplot as plt
@@ -26,7 +27,7 @@ class plant:
         Tprime_2 = 2*T[1] - np.sin(self.theta2[0])*self.theta2[1]
         denom = (16.0/9.0 - np.cos(self.theta2[0])**2)
 
-        mu = 0  # load on the arm
+        mu = 20  # load on the arm
         ddtheta2 = (
             (2*T[1] - np.sin(theta2[0])*theta1[1]**2*(1 + 2*mu)) /
             ((4.0/3.0 + np.cos(theta2[0]) + 2*mu*(1 + np.cos(theta2[0])) +
@@ -85,7 +86,7 @@ class controller:
 
         return np.array([T1, T2])
 
-T = 30
+T = 150
 dt = 0.001
 timeline = np.arange(0.0, T, dt)
 
@@ -101,11 +102,12 @@ plant_controlled = plant(dt=dt, theta1=theta1, theta2=theta2)
 theta1_controlled_track = np.zeros((timeline.shape[0], 2))
 theta2_controlled_track = np.zeros((timeline.shape[0], 2))
 
-theta1d_1 = lambda t: -50 + 52.5*(1 - np.cos(1.26*t)) if t <= 30 else 50
-theta1d_2 = lambda t: 52.5*1.26*np.sin(1.26*t) if t <= 30 else 0.0
+switch_time = 30
+theta1d_1 = lambda t: -50 + 52.5*(1 - np.cos(1.26*t)) if t <= switch_time else 50
+theta1d_2 = lambda t: 52.5*1.26*np.sin(1.26*t) if t <= switch_time else 0.0
 
-theta2d_1 = lambda t: 170 - 60*(1 - np.sin(1.26*t)) if t <= 30 else 170
-theta2d_2 = lambda t: 60*1.26*np.cos(1.26*t) if t < 30 else 0.0
+theta2d_1 = lambda t: 170 - 60*(1 - np.sin(1.26*t)) if t <= switch_time else 170
+theta2d_2 = lambda t: 60*1.26*np.cos(1.26*t) if t < switch_time else 0.0
 
 thetad_track = np.zeros((timeline.shape[0], 2))
 

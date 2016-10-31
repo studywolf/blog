@@ -1,5 +1,5 @@
-""" An implementation based on the 2-link arm plant and controller from
-    (Slotine & Sastry, 1983).
+""" An implementation of the 2-link arm plant and controller from
+    (Slotine & Sastry, 1983), with noise added to the system feedback.
 """
 
 import matplotlib.pyplot as plt

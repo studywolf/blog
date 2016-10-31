@@ -1,5 +1,6 @@
 """ An implementation based on the 2-link arm plant and controller from
-    (Slotine & Sastry, 1983).
+    (Slotine & Sastry, 1983), with a longer run time and different
+    desired trajectory.
 """
 
 import matplotlib.pyplot as plt

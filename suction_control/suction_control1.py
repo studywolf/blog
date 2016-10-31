@@ -72,7 +72,7 @@ class controller:
 
 
 T = 1.0
-dt = 0.0001
+dt = 0.001
 timeline = np.arange(0.0, T, dt)
 
 ctrlr = controller()
@@ -87,6 +87,8 @@ theta2_controlled_track = np.zeros((timeline.shape[0], 2))
 
 for ii, t in enumerate(timeline):
 
+    if ii % int(1.0/dt) == 0:
+        print('t: ', t)
     (theta1_uncontrolled_track[ii],
      theta2_uncontrolled_track[ii]) = plant_uncontrolled.state
     (theta1_controlled_track[ii],

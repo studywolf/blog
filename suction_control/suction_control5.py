@@ -74,8 +74,8 @@ class controller:
             b21*theta2[1]*(2*theta1[1] + theta2[1]) + b22*theta1[1]**2 +
             k21*(theta2[1] - theta2d[1]) - k2*np.sign(s2))
 
-        T2 = ((u2 - (0.5*np.cos(theta2[0]) - 1)*u1) /
-              (24.0/3.0 + 20.0/3.0*np.cos(theta2[0]) + np.cos(theta2[0])**2))
+        T2 = ((u2 + (1 + 3.0/2.0*np.cos(theta2[0]))*u1) /
+              (10.0/3.0 - np.cos(theta2[0])))
         T1 = 3.0/4.0*(u1 + (4.0/3.0 + 2*np.cos(theta2[0]))*T2)
 
         return np.array([T1, T2])

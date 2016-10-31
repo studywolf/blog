@@ -2,7 +2,7 @@
     (Slotine & Sastry, 1983), with a changed target trajectory.
 
     Here the target trajectories are 10*cos(t) and 10*(cos(t))**2,
-    additionally, the exact plant parameters are not known.
+    and the exact plant parameters are not known.
 """
 
 import matplotlib.pyplot as plt
@@ -92,6 +92,8 @@ theta2_controlled_track = np.zeros((timeline.shape[0], 2))
 
 for ii, t in enumerate(timeline):
 
+    if ii % int(1.0/dt) == 0:
+        print('t: ', t)
     (theta1_uncontrolled_track[ii],
      theta2_uncontrolled_track[ii]) = plant_uncontrolled.state
     (theta1_controlled_track[ii],
