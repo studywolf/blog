@@ -73,14 +73,14 @@ class robot_config:
 
         # transform matrix from origin to joint 0 reference frame
         # link 0 reference frame is the same as joint 0
-        self.T0org = sp.Matrix([[sp.cos(self.q[0]), -sp.sin(self.q[0]), 0, 0],
+        self.Torg0 = sp.Matrix([[sp.cos(self.q[0]), -sp.sin(self.q[0]), 0, 0],
                                 [sp.sin(self.q[0]), sp.cos(self.q[0]), 0, 0],
                                 [0, 0, 1, L[0]],
                                 [0, 0, 0, 1]])
 
         # transform matrix from joint 0 to joint 1 reference frame
         # link 1 reference frame is the same as joint 1
-        self.T10 = sp.Matrix([[1, 0, 0, -L[1]],
+        self.T01 = sp.Matrix([[1, 0, 0, -L[1]],
                               [0, sp.cos(-self.q[1] + sp.pi/2),
                                -sp.sin(-self.q[1] + sp.pi/2), 0],
                               [0, sp.sin(-self.q[1] + sp.pi/2),
@@ -88,7 +88,7 @@ class robot_config:
                               [0, 0, 0, 1]])
 
         # transform matrix from joint 1 to joint 2 reference frame
-        self.T21 = sp.Matrix([[1, 0, 0, 0],
+        self.T12 = sp.Matrix([[1, 0, 0, 0],
                               [0, sp.cos(-self.q[2]),
                                -sp.sin(-self.q[2]), L[2]],
                               [0, sp.sin(-self.q[2]),
@@ -96,7 +96,7 @@ class robot_config:
                               [0, 0, 0, 1]])
 
         # transform matrix from joint 1  to link 2
-        self.Tl21 = sp.Matrix([[1, 0, 0, 0],
+        self.T1l2 = sp.Matrix([[1, 0, 0, 0],
                                [0, sp.cos(-self.q[2]),
                                 -sp.sin(-self.q[2]), L[2] / 2],
                                [0, sp.sin(-self.q[2]),
@@ -104,7 +104,7 @@ class robot_config:
                                [0, 0, 0, 1]])
 
         # transform matrix from joint 2 to joint 3
-        self.T32 = sp.Matrix([[1, 0, 0, L[3]],
+        self.T23 = sp.Matrix([[1, 0, 0, L[3]],
                               [0, sp.cos(-self.q[3] - sp.pi/2),
                                -sp.sin(-self.q[3] - sp.pi/2), L[4]],
                               [0, sp.sin(-self.q[3] - sp.pi/2),
@@ -112,7 +112,7 @@ class robot_config:
                               [0, 0, 0, 1]])
 
         # transform matrix from joint 2 to link 3
-        self.Tl32 = sp.Matrix([[1, 0, 0, L[3]],
+        self.T2l3 = sp.Matrix([[1, 0, 0, L[3]],
                                [0, sp.cos(-self.q[3] - sp.pi/2),
                                 -sp.sin(-self.q[3] - sp.pi/2), L[4] / 2],
                                [0, sp.sin(-self.q[3] - sp.pi/2),
@@ -120,7 +120,7 @@ class robot_config:
                                [0, 0, 0, 1]])
 
         # transform matrix from joint 3 to joint 4
-        self.T43 = sp.Matrix([[sp.sin(-self.q[4] - sp.pi/2),
+        self.T34 = sp.Matrix([[sp.sin(-self.q[4] - sp.pi/2),
                                sp.cos(-self.q[4] - sp.pi/2), 0, -L[5]],
                               [sp.cos(-self.q[4] - sp.pi/2),
                                -sp.sin(-self.q[4] - sp.pi/2), 0, 0],
@@ -128,13 +128,13 @@ class robot_config:
                               [0, 0, 0, 1]])
 
         # transform matrix from joint 4 to joint 5
-        self.T54 = sp.Matrix([[1, 0, 0, 0],
+        self.T45 = sp.Matrix([[1, 0, 0, 0],
                               [0, sp.cos(self.q[5]), -sp.sin(self.q[5]), 0],
                               [0, sp.sin(self.q[5]), sp.cos(self.q[5]), L[6]],
                               [0, 0, 0, 1]])
 
         # transform matrix from joint 5 to end-effector
-        self.TEE5 = sp.Matrix([[0, 0, 0, L[7]],
+        self.T5EE = sp.Matrix([[0, 0, 0, L[7]],
                                [0, 0, 0, 0],
                                [0, 0, 0, 0],
                                [0, 0, 0, 1]])
@@ -314,25 +314,25 @@ class robot_config:
                                        'rb'))
         else:
             if name == 'joint0' or name == 'link0':
-                T = self.T0org
+                T = self.Torg0
             elif name == 'joint1' or name == 'link1':
-                T = self.T0org * self.T10
+                T = self.Torg0 * self.T01
             elif name == 'joint2':
-                T = self.T0org * self.T10 * self.T21
+                T = self.Torg0 * self.T01 * self.T12
             elif name == 'link2':
-                T = self.T0org * self.T10 * self.Tl21
+                T = self.Torg0 * self.T01 * self.T1l2
             elif name == 'joint3':
-                T = self.T0org * self.T10 * self.T21 * self.T32
+                T = self.Torg0 * self.T01 * self.T12 * self.T23
             elif name == 'link3':
-                T = self.T0org * self.T10 * self.T21 * self.Tl32
+                T = self.Torg0 * self.T01 * self.T12 * self.T2l3
             elif name == 'joint4' or name == 'link4':
-                T = self.T0org * self.T10 * self.T21 * self.T32 * self.T43
+                T = self.Torg0 * self.T01 * self.T12 * self.T23 * self.T34
             elif name == 'joint5' or name == 'link5':
-                T = self.T0org * self.T10 * self.T21 * self.T32 * self.T43 * \
-                    self.T54
+                T = self.Torg0 * self.T01 * self.T12 * self.T23 * self.T34 * \
+                    self.T45
             elif name == 'link6' or name == 'EE':
-                T = self.T0org * self.T10 * self.T21 * self.T32 * self.T43 * \
-                    self.T54 * self.TEE5
+                T = self.Torg0 * self.T01 * self.T12 * self.T23 * self.T34 * \
+                    self.T45 * self.T5EE
             Tx = T * self.x  # to convert from transform matrix to (x,y,z)
 
             # save to file
