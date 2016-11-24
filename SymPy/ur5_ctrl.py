@@ -55,6 +55,15 @@ try:
             clientID,
             'hand',
             vrep.simx_opmode_blocking)
+        # get handle for obstacle and set up streaming
+        _, obstacle_handle = vrep.simxGetObjectHandle(
+            clientID,
+            'obstacle',
+            vrep.simx_opmode_blocking)
+
+        # how close can we get to the obstacle?
+        threshold = .2  # distance in metres
+        obstacle_radius = .05
 
         # define a set of targets
         center = np.array([0, 0, 0.6])
@@ -84,11 +93,16 @@ try:
             clientID,
             vrep.simx_opmode_blocking)
 
-        count = 0
         track_hand = []
         track_target = []
+        track_obstacle = []
+
+        count = 0
         target_index = 0
-        change_target_time = dt*300
+        change_target_time = dt*1000
+        vmax = 0.5
+        kp = 200.0
+        kv = np.sqrt(kp)
 
         # NOTE: main loop starts here -----------------------------------------
         while count < len(target_positions) * change_target_time:
@@ -135,7 +149,7 @@ try:
 
             # calculate position of the end-effector
             # derived in the ur5 calc_TnJ class
-            xyz = robot_config.T('EE', q)
+            xyz = robot_config.Tx('EE', q)
 
             # calculate the Jacobian for the end effector
             JEE = robot_config.J('EE', q)
@@ -157,26 +171,118 @@ try:
             # numpy returns U,S,V.T, so have to transpose both here
             Mx = np.dot(svd_v.T, np.dot(np.diag(svd_s), svd_u.T))
 
-            kp = 100
-            kv = np.sqrt(kp)
             # calculate desired force in (x,y,z) space
-            u_xyz = np.dot(Mx, target_xyz - xyz)
-            # transform into joint space, add vel and gravity compensation
-            u = (kp * np.dot(JEE.T, u_xyz) - np.dot(Mq, kv * dq) - Mq_g)
+            dx = np.dot(JEE, dq)
+            # implement velocity limiting
+            lamb = kp / kv
+            x_tilde = xyz - target_xyz
+            sat = vmax / (lamb * np.abs(x_tilde))
+            scale = np.ones(3)
+            if np.any(sat < 1):
+                index = np.argmin(sat)
+                unclipped = kp * x_tilde[index]
+                clipped = kv * vmax * np.sign(x_tilde[index])
+                scale = np.ones(3) * clipped / unclipped
+                scale[index] = 1
+            u_xyz = -kv * (dx - np.clip(sat / scale, 0, 1) *
+                                -lamb * scale * x_tilde)
+            u_xyz = np.dot(Mx, u_xyz)
 
-            # calculate our secondary control signal
-            # calculated desired joint angle acceleration
-            q_des = (((robot_config.rest_angles - q) + np.pi) %
-                     (np.pi*2) - np.pi)
-            u_null = np.dot(Mq, (kp * q_des - kv * dq))
+            # transform into joint space, add vel and gravity compensation
+            u = np.dot(JEE.T, u_xyz) - Mq_g
 
             # calculate the null space filter
             Jdyn_inv = np.dot(Mx, np.dot(JEE, np.linalg.inv(Mq)))
             null_filter = (np.eye(robot_config.num_joints) -
                            np.dot(JEE.T, Jdyn_inv))
-            u_null_filtered = np.dot(null_filter, u_null)
+            # calculate our secondary control signal
+            q_des = np.zeros(robot_config.num_joints)
+            dq_des = np.zeros(robot_config.num_joints)
+            # calculated desired joint angle acceleration using rest angles
+            for ii in range(1, robot_config.num_joints):
+                if robot_config.rest_angles[ii] is not None:
+                    q_des[ii] = (
+                        ((robot_config.rest_angles[ii] - q[ii]) + np.pi) %
+                        (np.pi*2) - np.pi)
+                    dq_des[ii] = dq[ii]
+            # only compensate for velocity for joints with a control signal
+            nkp = kp * .1
+            nkv = np.sqrt(nkp)
+            u_null = np.dot(Mq, (nkp * q_des - nkv * dq_des))
 
-            u += u_null_filtered
+            u += np.dot(null_filter, u_null)
+
+            # get the (x,y,z) position of the center of the obstacle
+            _, v = vrep.simxGetObjectPosition(
+                clientID,
+                obstacle_handle,
+                -1,  # retrieve absolute, not relative, position
+                vrep.simx_opmode_blocking)
+            if _ != 0:
+                raise Exception()
+            track_obstacle.append(np.copy(v))  # store for plotting
+            v = np.asarray(v)
+
+            # find the closest point of each link to the obstacle
+            for ii in range(robot_config.num_joints):
+                # get the start and end-points of the arm segment
+                p1 = robot_config.Tx('joint%i' % ii, q=q)
+                if ii == robot_config.num_joints - 1:
+                    p2 = robot_config.Tx('EE', q=q)
+                else:
+                    p2 = robot_config.Tx('joint%i' % (ii + 1), q=q)
+
+                # calculate minimum distance from arm segment to obstacle
+                # the vector of our line
+                vec_line = p2 - p1
+                # the vector from the obstacle to the first line point
+                vec_ob_line = v - p1
+                # calculate the projection normalized by length of arm segment
+                projection = np.dot(vec_ob_line, vec_line) / np.sum((vec_line)**2)
+                if projection < 0:
+                    # then closest point is the start of the segment
+                    closest = p1
+                elif projection > 1:
+                    # then closest point is the end of the segment
+                    closest = p2
+                else:
+                    closest = p1 + projection * vec_line
+                # calculate distance from obstacle vertex to the closest point
+                dist = np.sqrt(np.sum((v - closest)**2))
+                # account for size of obstacle
+                rho = dist - obstacle_radius
+
+                if rho < threshold:
+
+                    eta = .02  # feel like i saw 4 somewhere in the paper
+                    drhodx = (v - closest) / rho
+                    Fpsp = (eta * (1.0/rho - 1.0/threshold) *
+                            1.0/rho**2 * drhodx)
+
+                    # get offset of closest point from link's reference frame
+                    T_inv = robot_config.T_inv('link%i' % ii, q=q)
+                    m = np.dot(T_inv, np.hstack([closest, [1]]))[:-1]
+                    # calculate the Jacobian for this point
+                    Jpsp = robot_config.J('link%i' % ii, x=m, q=q)[:3]
+
+                    # calculate the inertia matrix for the
+                    # point subjected to the potential space
+                    Mxpsp_inv = np.dot(Jpsp,
+                                    np.dot(np.linalg.pinv(Mq), Jpsp.T))
+                    svd_u, svd_s, svd_v = np.linalg.svd(Mxpsp_inv)
+                    # cut off singular values that could cause problems
+                    singularity_thresh = .00025
+                    for ii in range(len(svd_s)):
+                        svd_s[ii] = 0 if svd_s[ii] < singularity_thresh else \
+                            1./float(svd_s[ii])
+                    # numpy returns U,S,V.T, so have to transpose both here
+                    Mxpsp = np.dot(svd_v.T, np.dot(np.diag(svd_s), svd_u.T))
+
+                    u_psp = -np.dot(Jpsp.T, np.dot(Mxpsp, Fpsp))
+                    if rho < .01:
+                        u = u_psp
+                    else:
+                        u += u_psp
 
             # multiply by -1 because torque is opposite of expected
             u *= -1
@@ -250,6 +356,7 @@ finally:
 
     track_hand = np.array(track_hand)
     track_target = np.array(track_target)
+    track_obstacle = np.array(track_obstacle)
 
     fig = plt.figure()
     ax = fig.gca(projection='3d')
@@ -267,6 +374,11 @@ finally:
             track_target[:, 1],
             track_target[:, 2],
             'rx', mew=10)
+    # plot trajectory of obstacle
+    ax.plot(track_obstacle[:, 0],
+            track_obstacle[:, 1],
+            track_obstacle[:, 2],
+            'yx', mew=10)
 
     ax.set_xlim([-1, 1])
     ax.set_ylim([-.5, .5])
