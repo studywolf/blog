@@ -153,13 +153,15 @@ class robot_config:
             [0, 0, 1, 0],
             [0, 0, 0, 1]])
 
-        # orientation part of the Jacobian (compensating for orientations)
-        self.J_orientation = [[0, 0, 10],  # joint 0 rotates around z axis
-                              [10, 0, 0],  # joint 1 rotates around x axis
-                              [10, 0, 0],  # joint 2 rotates around x axis
-                              [10, 0, 0],  # joint 3 rotates around x axis
-                              [0, 0, 10],  # joint 4 rotates around z axis
-                              [1, 0, 0]]  # joint 5 rotates around x axis
+        # orientation part of the Jacobian (compensating for angular velocity)
+        kz = sp.Matrix([0, 0, 1])
+        self.J_orientation = [
+            self._calc_T('joint0')[:3, :3] * kz,  # joint 0 orientation
+            self._calc_T('joint1')[:3, :3] * kz,  # joint 1 orientation
+            self._calc_T('joint2')[:3, :3] * kz,  # joint 2 orientation
+            self._calc_T('joint3')[:3, :3] * kz,  # joint 3 orientation
+            self._calc_T('joint4')[:3, :3] * kz,  # joint 4 orientation
+            self._calc_T('joint5')[:3, :3] * kz]  # joint 5 orientation
 
     def J(self, name, q, x=[0, 0, 0]):
         """ Calculates the transform for a joint or link

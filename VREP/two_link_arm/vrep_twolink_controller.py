@@ -17,7 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 import vrep
 
-try: 
+try:
     # close any open connections
     vrep.simxFinish(-1)
     # Connect to the V-REP continuous server
