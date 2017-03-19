@@ -249,9 +249,9 @@ class robot_config:
             # calculate derivative of (x,y,z) wrt to each joint
             for ii in range(self.num_joints):
                 J.append([])
-                J[ii].append(sp.simplify(Tx[0].diff(self.q[ii])))  # dx/dq[ii]
-                J[ii].append(sp.simplify(Tx[1].diff(self.q[ii])))  # dy/dq[ii]
-                J[ii].append(sp.simplify(Tx[2].diff(self.q[ii])))  # dz/dq[ii]
+                J[ii].append(Tx[0].diff(self.q[ii]))  # dx/dq[ii]
+                J[ii].append(Tx[1].diff(self.q[ii]))  # dy/dq[ii]
+                J[ii].append(Tx[2].diff(self.q[ii]))  # dz/dq[ii]
 
             end_point = name.strip('link').strip('joint')
             if end_point != 'EE':
@@ -294,7 +294,7 @@ class robot_config:
             Mq = sp.zeros(self.num_joints)
             for ii in range(self.num_links):
                 Mq += J[ii].T * self._M[ii] * J[ii]
-            Mq = sp.simplify(Mq)
+            Mq = sp.Matrix(Mq)
 
             # save to file
             cloudpickle.dump(Mq, open('%s/Mq' % self.config_folder, 'wb'))
@@ -326,7 +326,7 @@ class robot_config:
             Mq_g = sp.zeros(self.num_joints, 1)
             for ii in range(self.num_joints):
                 Mq_g += J[ii].T * self._M[ii] * self.gravity
-            Mq_g = sp.simplify(Mq_g)
+            Mq_g = sp.Matrix(Mq_g)
 
             # save to file
             cloudpickle.dump(Mq_g, open('%s/Mq_g' % self.config_folder,
@@ -387,7 +387,7 @@ class robot_config:
         else:
             T = self._calc_T(name=name)
             # transform x into world coordinates
-            Tx = sp.simplify(T * sp.Matrix(self.x + [1]))
+            Tx = T * sp.Matrix(self.x + [1])
 
             # save to file
             cloudpickle.dump(Tx, open('%s/%s.T' %
