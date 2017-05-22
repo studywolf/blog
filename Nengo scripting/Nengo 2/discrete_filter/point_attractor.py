@@ -11,6 +11,7 @@ import nengo
 def generate(net=None, n_neurons=200, alpha=1000.0, beta=1000.0/4.0,
              dt=0.001, analog=False):
     tau = 0.1  # synaptic time constant
+    synapse = nengo.Lowpass(tau)
 
     # the A matrix for our point attractor
     A = np.array([[0.0, 1.0],
@@ -19,17 +20,26 @@ def generate(net=None, n_neurons=200, alpha=1000.0, beta=1000.0/4.0,
     # the B matrix for our point attractor
     B = np.array([[0.0], [alpha*beta]])
 
-    # discretize
-    Ad = expm(A*dt)
-    Bd = np.dot(np.linalg.inv(A), np.dot((Ad - np.eye(2)), B))
-    # account for discrete lowpass filter
-    a = np.exp(-dt/tau)
+    # if you have the nengolib library you can do it this way
+    # from nengolib.synapses import ss2sim
+    # C = np.eye(2)
+    # D = np.zeros((2, 2))
+    # linsys = ss2sim((A, B, C, D), synapse=synapse, dt=None if analog else dt)
+    # A = linsys.A
+    # B = linsys.B
+
     if analog:
-        A = 1.0 / (1.0 - a) * (Ad - a * np.eye(2))
-        B = 1.0 / (1.0 - a) * Bd
-    else:
+        # account for continuous lowpass filter
         A = tau * A + np.eye(2)
         B = tau * B
+    else:
+        # discretize state matrices
+        Ad = expm(A*dt)
+        Bd = np.dot(np.linalg.inv(A), np.dot((Ad - np.eye(2)), B))
+        # account for discrete lowpass filter
+        a = np.exp(-dt/tau)
+        A = 1.0 / (1.0 - a) * (Ad - a * np.eye(2))
+        B = 1.0 / (1.0 - a) * Bd
 
     if net is None:
         net = nengo.Network(label='Point Attractor')
@@ -60,6 +70,7 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     plt.figure(figsize=(5, 12))
 
+    dt = 1e-3
     time = 5  # number of seconds to run simulation
     alphas = [10.0, 100.0, 1000.0]
     for ii, alpha in enumerate(alphas):
@@ -72,21 +83,22 @@ if __name__ == '__main__':
                     return float(int(t)) / time * 2 - 1
                 goal = nengo.Node(output=goal_func)
                 pa = generate(n_neurons=1000, analog=option,
-                              alpha=alpha, beta=beta)
+                              alpha=alpha, beta=beta, dt=dt)
                 nengo.Connection(goal, pa.input, synapse=None)
 
                 probe_ans = nengo.Probe(goal)
                 probe = nengo.Probe(pa.output, synapse=.01)
 
-            sim = nengo.Simulator(model, dt=.001)
+            sim = nengo.Simulator(model, dt=dt)
             sim.run(time)
             probe_results.append(np.copy(sim.data[probe]))
 
         plt.subplot(len(alphas), 1, ii+1)
-        plt.plot(sim.trange(), probe_results[0])
-        plt.plot(sim.trange(), probe_results[1], 'g')
-        plt.plot(sim.trange(), sim.data[probe_ans][:, 0], 'r--')
-        plt.legend(['continuous', 'discrete', 'desired'])
+        lines_c = plt.plot(sim.trange(), probe_results[0], 'b')
+        lines_d = plt.plot(sim.trange(), probe_results[1], 'g')
+        line_ans = plt.plot(sim.trange(), sim.data[probe_ans][:, 0], 'r--')
+        plt.legend([lines_c[0], lines_d[0], line_ans],
+                   ['continuous', 'discrete', 'desired'])
         plt.title('alpha=%.2f, beta=%.2f' % (alpha, beta))
 
     plt.tight_layout()
