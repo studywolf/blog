@@ -15,7 +15,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
-import math
 import numpy as np
 import scipy.optimize
 
@@ -34,14 +33,14 @@ class Arm3Link:
             the arm segment lengths
         """
         # initial joint angles
-        self.q = [math.pi/4, math.pi/4, 0] if q is None else q
+        self.q = [.3, .3, 0] if q is None else q
         # some default arm positions
-        self.q0 = np.array([math.pi/4, math.pi/4, 0]) if q0 is None else q0
+        self.q0 = np.array([np.pi/4, np.pi/4, np.pi/4]) if q0 is None else q0
         # arm segment lengths
         self.L = np.array([1, 1, 1]) if L is None else L
 
-        self.max_angles = [math.pi/2.0, math.pi, math.pi/4]
-        self.min_angles = [0, 0, -math.pi/4]
+        self.max_angles = [np.pi, np.pi, np.pi/4]
+        self.min_angles = [0, 0, -np.pi/4]
 
     def get_xy(self, q=None):
         """Returns the corresponding hand xy coordinates for
@@ -170,8 +169,9 @@ class Arm3Link:
             x0=self.q,
             eqcons=[x_constraint,
                     y_constraint],
-            ieqcons=[joint_limits_upper_constraint,
-                     joint_limits_lower_constraint],
+            # uncomment to add in min / max angles for the joints
+            # ieqcons=[joint_limits_upper_constraint,
+            #          joint_limits_lower_constraint],
             args=(xy,),
             iprint=0)  # iprint=0 suppresses output
 
@@ -183,7 +183,7 @@ def test():
 
     # set of desired (x,y) hand positions
     x = np.arange(-.75, .75, .05)
-    y = np.arange(0, .75, .05)
+    y = np.arange(.25, .75, .05)
 
     # threshold for printing out information, to find trouble spots
     thresh = .025
@@ -200,9 +200,9 @@ def test():
             # find the (x,y) position of the hand given these angles
             actual_xy = arm.get_xy(q)
             # calculate the root squared error
-            error = np.sqrt((np.array(xy) - np.array(actual_xy))**2)
+            error = np.sqrt(np.sum((np.array(xy) - np.array(actual_xy))**2))
             # total the error
-            total_error += error
+            total_error += np.nan_to_num(error)
 
             # if the error was high, print out more information
             if np.sum(error) > thresh:
@@ -220,3 +220,6 @@ def test():
     print('Total number of trials: ', count)
     print('Total error: ', total_error)
     print('-------------------------')
+
+if __name__ == '__main__':
+    test()
