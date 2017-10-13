@@ -99,24 +99,22 @@ try:
 
             # get the Jacobians for the centres-of-mass for the arm segments
             JCOM1 = np.zeros((6,2))
-            JCOM1[0,0] = .22 * -np.sin(q[0]) # COM is in a weird place
-            JCOM1[2,0] = .22 * np.cos(q[0])  # because of offset
+            JCOM1[0,0] = L[0] * -np.sin(q[0]) # COM is in a weird place
+            JCOM1[2,0] = L[0] * np.cos(q[0])  # because of offset
             JCOM1[4,0] = 1.0
 
             JCOM2 = np.zeros((6,2))
-            JCOM2[0,1] = .15 * -np.sin(q[0]+q[1]) # COM is in a weird place
-            JCOM2[2,1] = .15 * np.cos(q[0]+q[1])  # because of offset
+            JCOM2[0,1] = L[1] * -np.sin(q[0]+q[1]) # COM is in a weird place
+            JCOM2[2,1] = L[1] * np.cos(q[0]+q[1])  # because of offset
             JCOM2[4,1] = 1.0
             JCOM2[0,0] = L[0] * -np.sin(q[0]) + JCOM2[0,1]
             JCOM2[2,0] = L[0] * np.cos(q[0]) + JCOM2[2,1]
             JCOM2[4,0] = 1.0
 
-            m1 = 1 # from VREP
-            i1 = .5 # from VREP
-            M1 = np.diag([m1, m1, m1, i1, i1, i1]) * 2
-            m2 = 2 # from VREP
-            i2 = .1 # from VREP
-            M2 = np.diag([m2, m2, m2, i2, i2, i2]) * 2
+            m1 = 1.171 # from VREP
+            M1 = np.diag([m1, m1, m1, .008, .008, .001])
+            m2 = .329 # from VREP
+            M2 = np.diag([m2, m2, m2, 5e-4, 5e-4, 1e-4])
 
             # generate the mass matrix in joint space
             Mq = np.dot(JCOM1.T, np.dot(M1, JCOM1)) + \
