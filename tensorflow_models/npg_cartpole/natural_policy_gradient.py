@@ -244,7 +244,7 @@ for ii in range(10):
         times.append(time.time() - start_time)
     print('average time: %.3f' % (np.sum(times) / n_training_batches))
 
-    np.savez_compressed('data/natural_policy_gradient_optimized_%i' % ii,
+    np.savez_compressed('data/natural_policy_gradient_%i' % ii,
             max_rewards=max_rewards, total_episodes=total_episodes)
 
     sess.close()

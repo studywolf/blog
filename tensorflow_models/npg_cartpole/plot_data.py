@@ -26,7 +26,7 @@ def bootstrapci(data, func, n=3000, p=0.95):
 
 fig = plt.figure(figsize=(7, 3.5))
 for name, color in zip(
-        ['policy_gradient', 'natural_policy_gradient_optimized'], ['b', 'g']):
+        ['policy_gradient', 'natural_policy_gradient'], ['b', 'g']):
 
     # load in data
     all_max_rewards = []
