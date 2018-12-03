@@ -33,9 +33,9 @@ interface.connect()
 ctrlr_dof = np.array([False, False, False, True, True, True])
 
 # control gains
-kp = 500
+kp = 400
 ko = 200
-kv = np.sqrt(kp)
+kv = np.sqrt(kp+ko)
 
 try:
     print('\nSimulation starting...\n')
@@ -44,44 +44,63 @@ try:
         feedback = interface.get_feedback()
         hand_xyz = robot_config.Tx('EE', feedback['q'])
 
+        target = np.hstack([
+            interface.get_xyz('target'),
+            interface.get_orientation('target')])
+
         # set the block to be the same orientation as end-effector
         rc_matrix = robot_config.R('EE', feedback['q'])
         rc_angles = transformations.euler_from_matrix(
             rc_matrix, axes='rxyz')
         interface.set_orientation('object', rc_angles)
 
-        # get Jacobian and remove uncontrolled dimensions
+        # calculate the Jacobian for the end effectora
+        # and isolate relevate dimensions
         J = robot_config.J('EE', q=feedback['q'])[ctrlr_dof]
 
         # calculate the inertia matrix in task space
         M = robot_config.M(q=feedback['q'])
-        Mx_inv = np.dot(J, np.dot(np.linalg.inv(M), J.T))
-        Mx = np.linalg.pinv(Mx_inv, rcond=.005)
 
-        target = np.hstack([
-            interface.get_xyz('target'),
-            interface.get_orientation('target')])
+        # calculate the inertia matrix in task space
+        M_inv = np.linalg.inv(M)
+        Mx_inv = np.dot(J, np.dot(M_inv, J.T))
+        if np.linalg.det(Mx_inv) != 0:
+            # do the linalg inverse if matrix is non-singular
+            # because it's faster and more accurate
+            Mx = np.linalg.inv(Mx_inv)
+        else:
+            # using the rcond to set singular values < thresh to 0
+            # singular values < (rcond * max(singular_values)) set to 0
+            Mx = np.linalg.pinv(Mx_inv, rcond=.005)
 
         u_task = np.zeros(6)  # [x, y, z, alpha, beta, gamma]
+
         # calculate position error
         u_task[:3] = -kp * (hand_xyz - target[:3])
 
         # calculate orientation error
         q_target = transformations.quaternion_from_euler(
             target[3], target[4], target[5], axes='rxyz')
-        q_ee = transformations.quaternion_from_matrix(
+        q_EE = transformations.quaternion_from_matrix(
             robot_config.R('EE', q=feedback['q']))
         q_r = transformations.quaternion_multiply(
-            q_target, transformations.quaternion_conjugate(q_ee))
+            q_target, transformations.quaternion_conjugate(q_EE))
+
+        # conversion method 1
+        # u_task[3:] = ko * np.array(
+        #     transformations.euler_from_quaternion(q_r, axes='rxyz'))
+        # conversion method 2
         u_task[3:] = ko * q_r[1:] * np.sign(q_r[0])
 
         # remove uncontrolled dimensions from u_task
         u_task = u_task[ctrlr_dof]
+
         # transform from operational space to torques
         # add in velocity and gravity compensation in joint space
         u = (np.dot(J.T, np.dot(Mx, u_task)) -
                 kv * np.dot(M, feedback['dq']) -
                 robot_config.g(q=feedback['q']))
+
         # apply the control signal, step the sim forward
         interface.send_forces(u)
 
