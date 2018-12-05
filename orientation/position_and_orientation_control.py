@@ -30,18 +30,24 @@ interface.connect()
 
 # specify which parameters [x, y, z, alpha, beta, gamma] to control
 # NOTE: needs to be an array to properly select elements of J and u_task
-ctrlr_dof = np.array([False, False, False, True, True, True])
+ctrlr_dof = np.array([True, True, True, True, True, True])
 
 # control gains
 kp = 300
 ko = 300
-kv = np.sqrt(kp+ko)
+kv = np.sqrt(kp+ko) * 1.5
 
 orientations = [
     [0, 0, 0],
     [np.pi/4, np.pi/4, np.pi/4],
     [-np.pi/4, -np.pi/4, np.pi/2],
     [0, 0, 0],
+    ]
+positions =[
+    [0.15, -0.1, 0.6],
+    [-.15, 0.0, .7],
+    [.2, .2, .6],
+    [0.15, -0.1, 0.6]
     ]
 
 try:
@@ -58,6 +64,7 @@ try:
             if index >= len(orientations):
                 break
             interface.set_orientation('target', orientations[index])
+            interface.set_xyz('target', positions[index])
             index += 1
 
         target = np.hstack([
